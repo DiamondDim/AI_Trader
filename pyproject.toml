@@ -1,15 +1,23 @@
 [project]
 name = "ai-trader"
 version = "0.1.0"
-description = ""
+description = "AI Trader - Algorithmic trading system with pattern recognition"
 authors = [
-    {name = "Дмитрий",email = "mecheny91@yandex.ru"}
+    {name = "Дмитрий", email = "mecheny91@yandex.ru"}
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.10, <3.14"
 dependencies = [
+    "MetaTrader5>=5.0.45",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.1.0",
+    "PyYAML>=6.0.1",
+    "loguru>=0.7.2"
 ]
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+package-mode = false
