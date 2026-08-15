@@ -4,6 +4,8 @@
 Алгоритмическая торговая система с распознаванием паттернов и машинным обучением.
 ---
 
+[![License: Proprietary](https://img.shields.io/badge/License-All_Rights_Reserved-red.svg)](LICENSE.md)
+
 ---
 
 ## 📌 О проекте
