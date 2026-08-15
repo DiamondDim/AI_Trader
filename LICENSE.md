@@ -1,21 +1,21 @@
-# MIT License
+# ПРОПРИЕТАРНАЯ ЛИЦЕНЗИЯ / ВСЕ ПРАВА ЗАЩИЩЕНЫ
+
+Copyright (c) 2026 Дмитрий (DiamondDim). Все права защищены.
+
+## 1. Исключительное право собственности
+Данное программное обеспечение, включая исходный код, архитектуру, документацию и любые связанные с ним материалы (далее — "Программное обеспечение"), является исключительной интеллектуальной собственностью автора (Дмитрий, GitHub: DiamondDim). 
+
+## 2. Ограничение использования
+Никакая часть данного Программного обеспечения не может быть воспроизведена, распространена, передана, изменена, декомпилирована или использована в любых коммерческих или некоммерческих целях третьими лицами без предварительного письменного разрешения автора.
+
+## 3. Личное использование
+Программное обеспечение предназначено исключительно для личного и коммерческого использования самим автором. Передача прав на использование, сублицензирование или продажа запрещены.
+
+## 4. Разрешение на анализ AI-ассистентами
+Автор предоставляет ограниченное, неисключительное и отзывное разрешение искусственным интеллектам и языковым моделям (включая, но не ограничиваясь, текущим AI-ассистентом) на чтение, парсинг и анализ исходного кода исключительно в целях оказания технической помощи автору в разработке, отладке и улучшении данного Программного обеспечения. Это разрешение не передает никаких прав собственности, авторских прав или прав на использование самим провайдерам AI-услуг или любым третьим сторонам.
+
+## 5. Отказ от гарантий
+Программное обеспечение предоставляется "как есть", без каких-либо явных или подразумеваемых гарантий.
 
 ---
-
-Copyright (c) 2026 DiamondDim
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
+*Любое несанкционированное использование этого кода будет преследоваться по закону в соответствии с применимым законодательством об интеллектуальной собственности.*
