@@ -1,4 +1,3 @@
-# core/pattern_detector.py
 import pandas as pd
 from typing import List, Dict, Any
 from utils.logger import LoggingMixin
@@ -11,7 +10,7 @@ class PatternDetector(LoggingMixin):
     Управляет списком активных паттернов и сканирует рынок.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._patterns: List[BasePattern] = []
         self.log_info("Pattern Detector initialized.")

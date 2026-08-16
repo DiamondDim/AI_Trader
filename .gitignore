@@ -203,3 +203,5 @@ test_check.py
 /debug_regex.py
 /test_imports.py
 Info_loging.txt
+expanded_patterns
+RESULTS.md

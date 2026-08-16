@@ -5,6 +5,7 @@ from core.patterns.candlestick import BullishEngulfing, BearishEngulfing, Doji, 
 from core.backtesting import Backtester
 from core.indicators import Indicators
 from utils.helpers import is_active_session
+import pandas as pd
 
 
 def main():
@@ -13,19 +14,21 @@ def main():
 
     if connector.connect():
         print(f"📥 Загружаем данные для {config.SYMBOL} (H1)...")
-        df = connector.get_rates(config.SYMBOL, timeframe='H1', bars=200)  # Берем чуть больше для расчета EMA
+        df = connector.get_rates(config.SYMBOL, timeframe='H1', bars=5000)
 
         if df.empty:
             print("❌ Данные не получены.")
             connector.disconnect()
             return
 
-        # 1. Добавляем индикатор тренда
+        # 1. Добавляем индикаторы
         indicator = Indicators()
         df = indicator.add_ema(df, period=50)
         df = indicator.add_atr(df, period=14)
+        df = indicator.add_stochastic(df, k_period=14, d_period=3, smooth=3)
+        df = indicator.add_adx(df, period=14)
 
-        # 2. Инициализируем детектор
+        # 2. Инициализируем детектор (только 4 проверенных паттерна)
         detector = PatternDetector()
         detector.register_pattern(BullishEngulfing())
         detector.register_pattern(BearishEngulfing())
@@ -40,6 +43,10 @@ def main():
         all_signals = []
         filtered_signals = []
 
+        # Счетчики для статистики
+        filtered_by_adx = 0
+        filtered_by_stoch = 0
+
         for pattern_name, detections in results.items():
             for det in detections:
                 det['pattern_name'] = pattern_name
@@ -49,40 +56,60 @@ def main():
                 signal_type = det['type']
                 signal_time = det['time']
 
-                # Фильтр 0: Игнорируем нейтральные сигналы (Doji) в этой стратегии
+                # Фильтр 0: Игнорируем нейтральные сигналы (Doji)
                 if signal_type == 'neutral':
                     continue
+
                 # Фильтр 1: Тренд (EMA 50)
-                # Бычьи сигналы берем только если цена ВЫШЕ EMA
-                # Медвежьи сигналы берем только если цена НИЖЕ EMA
                 if signal_type == 'bullish' and df['close'].iloc[idx] <= df['ema_50'].iloc[idx]:
                     continue
                 if signal_type == 'bearish' and df['close'].iloc[idx] >= df['ema_50'].iloc[idx]:
                     continue
 
-                # Фильтр 2: Активная сессия (10:00 - 23:00 МСК)
+                # Фильтр 2: Сила тренда (ADX > 20)
+                adx_value = df['adx'].iloc[idx]
+                if pd.isna(adx_value) or adx_value < 20:
+                    filtered_by_adx += 1
+                    continue
+
+                # Фильтр 3: Stochastic (зона перекупленности/перепроданности)
+                stoch_k = df['stoch_k'].iloc[idx]
+                if pd.isna(stoch_k):
+                    continue
+
+                if signal_type == 'bullish' and stoch_k >= 30:
+                    filtered_by_stoch += 1
+                    continue
+                if signal_type == 'bearish' and stoch_k <= 70:
+                    filtered_by_stoch += 1
+                    continue
+
+                # Фильтр 4: Активная сессия (10:00 - 23:00 МСК)
                 if not is_active_session(signal_time):
                     continue
 
                 filtered_signals.append(det)
 
-        print(f"\n Всего найдено сырых сигналов: {len(all_signals)}")
-        print(f"🎯 Сигналов после фильтрации (Тренд + Сессия): {len(filtered_signals)}")
+        print(f"\n📊 Статистика фильтрации:")
+        print(f"   Всего сырых сигналов: {len(all_signals)}")
+        print(f"   Отсечено по ADX (< 20): {filtered_by_adx}")
+        print(f"   Отсечено по Stochastic: {filtered_by_stoch}")
+        print(f"✅ Сигналов после ВСЕЙ фильтрации: {len(filtered_signals)}\n")
 
         # 5. Запускаем бэктестер с ATR-based SL/TP
         if filtered_signals:
-            print("⚙️ Запуск бэктестинга с ATR-based SL/TP...")
+            print("️ Запуск бэктестинга с ATR-based SL/TP...")
             backtester = Backtester(
                 initial_balance=10000.0,
                 lot_size=0.01,
-                atr_sl_multiplier=1.5,  # SL = 1.5 * ATR
-                atr_tp_multiplier=3.0   # TP = 3.0 * ATR (R:R 1:2)
+                atr_sl_multiplier=1.5,
+                atr_tp_multiplier=3.0
             )
             stats = backtester.run(df, connector, filtered_signals)
 
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print(" 💰 РЕЗУЛЬТАТЫ БЭКТЕСТА (ATR-BASED)")
-            print("="*50)
+            print("=" * 50)
             print(f"Всего сделок: {stats['total_trades']}")
             print(f"Прибыльных (TP): {stats['wins']}")
             print(f"Убыточных (SL): {stats['losses']}")
@@ -91,7 +118,7 @@ def main():
             print(f"Чистый профит: {stats['total_pnl_rub']:.2f} RUB")
             print(f"Средний PnL на сделку: {stats['avg_pnl_per_trade']:.2f} RUB")
             print(f"Итоговый баланс: {stats['final_balance']:.2f} RUB")
-            print("="*50)
+            print("=" * 50)
         else:
             print("⚠️ После фильтрации не осталось ни одного сигнала.")
 
