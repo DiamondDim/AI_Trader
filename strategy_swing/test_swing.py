@@ -1,8 +1,12 @@
-import config
 import sys
+import os
 import io
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import config
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
 from broker.mt5_connector import get_mt5_connector
 from core.pattern_detector import PatternDetector
 from core.patterns.candlestick import BullishEngulfing, BearishEngulfing, Doji, Hammer

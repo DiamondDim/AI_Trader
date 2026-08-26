@@ -151,9 +151,9 @@ def run_tests(selected_symbols):
         print(f"ТЕСТИРОВАНИЕ: {symbol}")
         print(f"{'=' * 70}")
 
-        # Запускаем test_patterns.py с аргументом символа и UTF-8 окружением
+        # Запускаем strategy_swing/test_swing.py с аргументом символа и UTF-8 окружением
         result = subprocess.run(
-            [sys.executable, 'test_patterns.py', symbol],
+            [sys.executable, 'strategy_swing/test_swing.py', symbol],
             capture_output=True,
             text=True,
             encoding='utf-8',
