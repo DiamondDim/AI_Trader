@@ -1,15 +1,10 @@
-"""
-MetaTrader 5 connector for data retrieval and trading operations.
-"""
+"""MetaTrader 5 connector for data retrieval and trading operations."""
+
+from datetime import datetime
+from typing import Optional, Dict, Any, List
 
 import MetaTrader5 as mt5
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
-import logging
-
-from pandas import DatetimeIndex, Series, Timestamp
 
 import config
 from utils.logger import LoggingMixin
@@ -21,423 +16,242 @@ class MT5Connector(LoggingMixin):
     def __init__(self, login: Optional[int] = None,
                  password: Optional[str] = None,
                  server: Optional[str] = None):
-        """Initialize MT5 connector.
-
-        Args:
-            login: MT5 account login
-            password: MT5 account password
-            server: MT5 server name
-        """
         super().__init__()
         self.login = login or config.MT5_LOGIN
         self.password = password or config.MT5_PASSWORD
         self.server = server or config.MT5_SERVER
         self.connected = False
-
-        # Timeframe mapping
         self.timeframe_map = {
-            'M1': mt5.TIMEFRAME_M1,
-            'M5': mt5.TIMEFRAME_M5,
-            'M15': mt5.TIMEFRAME_M15,
-            'M30': mt5.TIMEFRAME_M30,
-            'H1': mt5.TIMEFRAME_H1,
-            'H4': mt5.TIMEFRAME_H4,
-            'D1': mt5.TIMEFRAME_D1,
-            'W1': mt5.TIMEFRAME_W1,
-            'MN1': mt5.TIMEFRAME_MN1
+            'M1': mt5.TIMEFRAME_M1, 'M5': mt5.TIMEFRAME_M5,
+            'M15': mt5.TIMEFRAME_M15, 'M30': mt5.TIMEFRAME_M30,
+            'H1': mt5.TIMEFRAME_H1, 'H4': mt5.TIMEFRAME_H4,
+            'D1': mt5.TIMEFRAME_D1, 'W1': mt5.TIMEFRAME_W1,
+            'MN1': mt5.TIMEFRAME_MN1,
         }
 
     def connect(self, login: Optional[int] = None,
                 password: Optional[str] = None,
                 server: Optional[str] = None) -> bool:
-        """Connect to MT5 terminal.
-
-        Args:
-            login: MT5 account login
-            password: MT5 account password
-            server: MT5 server name
-
-        Returns:
-            True if connection successful, False otherwise
-        """
         try:
-            # Update credentials if provided
-            if login:
+            if login is not None:
                 self.login = login
-            if password:
+            if password is not None:
                 self.password = password
-            if server:
+            if server is not None:
                 self.server = server
-
-            # Initialize MT5
             if not mt5.initialize():
-                error = mt5.last_error()
-                self.log_error(f"MT5 initialization failed: {error}")
+                self.log_error(f"MT5 initialization failed: {mt5.last_error()}")
                 return False
-
-            # Login to MT5
             if not mt5.login(self.login, self.password, self.server, timeout=config.MT5_TIMEOUT):
-                error = mt5.last_error()
-                self.log_error(f"MT5 login failed: {error}")
+                self.log_error(f"MT5 login failed: {mt5.last_error()}")
                 mt5.shutdown()
                 return False
-
             self.connected = True
             self.log_info(f"Connected to MT5 (Login: {self.login}, Server: {self.server})")
-
-            # Print account info
             account_info = self.get_account_info()
             if account_info:
-                self.log_info(f"Account balance: {account_info.get('balance', 0):.2f} "
-                              f"{account_info.get('currency', 'USD')}")
-
+                self.log_info(f"Account balance: {account_info.get('balance', 0):.2f} {account_info.get('currency', 'USD')}")
             return True
-
-        except Exception as e:
-            self.log_error(f"Error connecting to MT5: {e}")
+        except Exception as exc:
+            self.log_error(f"Error connecting to MT5: {exc}")
             return False
 
     def disconnect(self) -> bool:
-        """Disconnect from MT5 terminal.
-
-        Returns:
-            True if disconnection successful, False otherwise
-        """
         try:
             if self.connected:
                 mt5.shutdown()
                 self.connected = False
                 self.log_info("Disconnected from MT5")
             return True
-        except Exception as e:
-            self.log_error(f"Error disconnecting from MT5: {e}")
+        except Exception as exc:
+            self.log_error(f"Error disconnecting from MT5: {exc}")
             return False
 
-    def get_rates(self, symbol: str, timeframe: str,
-                  bars: int = 100) -> pd.DataFrame:
-        """Get historical rates for a symbol.
+    def resolve_symbol(self, symbol: str) -> Optional[str]:
+        """Resolve a logical symbol to the exact broker symbol name."""
+        if not self.connected:
+            return None
+        direct = mt5.symbol_info(symbol)
+        if direct is not None:
+            return direct.name
+        try:
+            for candidate in mt5.symbols_get() or []:
+                if symbol.upper() in candidate.name.upper():
+                    return candidate.name
+        except Exception as exc:
+            self.log_error(f"Error resolving symbol {symbol}: {exc}")
+        return None
 
-        Args:
-            symbol: Trading symbol (e.g., 'EURUSD')
-            timeframe: Timeframe string (e.g., 'H1')
-            bars: Number of bars to retrieve
-
-        Returns:
-            DataFrame with historical rates
-        """
+    def get_rates(self, symbol: str, timeframe: str, bars: int = 100) -> pd.DataFrame:
         if not self.connected:
             self.log_error("Not connected to MT5")
             return pd.DataFrame()
-
-        # Map timeframe string to MT5 constant
         mt5_timeframe = self.timeframe_map.get(timeframe.upper())
         if mt5_timeframe is None:
             self.log_error(f"Unsupported timeframe: {timeframe}")
             return pd.DataFrame()
-
+        resolved = self.resolve_symbol(symbol)
+        if not resolved:
+            self.log_warning(f"Symbol {symbol} not found")
+            return pd.DataFrame()
         try:
-            # Get rates
-            rates = mt5.copy_rates_from_pos(symbol, mt5_timeframe, 0, bars)
-
+            rates = mt5.copy_rates_from_pos(resolved, mt5_timeframe, 0, bars)
             if rates is None or len(rates) == 0:
-                self.log_warning(f"No rates returned for {symbol} {timeframe}")
+                self.log_warning(f"No rates returned for {resolved} {timeframe}")
                 return pd.DataFrame()
-
-            # Convert to DataFrame
             df = pd.DataFrame(rates)
-
-            # Convert time
             if 'time' in df.columns:
                 df['time'] = pd.to_datetime(df['time'], unit='s')
                 df.set_index('time', inplace=True)
-
-            # Rename columns to lowercase
             df.columns = [col.lower() for col in df.columns]
-
-            self.log_debug(f"Retrieved {len(df)} bars for {symbol} {timeframe}")
-
             return df
-
-        except Exception as e:
-            self.log_error(f"Error getting rates for {symbol} {timeframe}: {e}")
+        except Exception as exc:
+            self.log_error(f"Error getting rates for {resolved} {timeframe}: {exc}")
             return pd.DataFrame()
 
     def get_account_info(self) -> Optional[Dict[str, Any]]:
-        """Get account information.
-
-        Returns:
-            Dictionary with account info, None if error
-        """
         if not self.connected:
-            self.log_error("Not connected to MT5")
             return None
-
         try:
-            account_info = mt5.account_info()
-            if account_info is None:
-                self.log_error(f"Failed to get account info: {mt5.last_error()}")
+            info = mt5.account_info()
+            if info is None:
                 return None
-
             return {
-                'login': account_info.login,
-                'balance': account_info.balance,
-                'equity': account_info.equity,
-                'margin': account_info.margin,
-                'free_margin': account_info.margin_free,
-                'leverage': account_info.leverage,
-                'currency': account_info.currency,
-                'company': account_info.company,
-                'name': account_info.name,
-                'server': account_info.server,
-                'trade_mode': account_info.trade_mode,
-                'trade_allowed': account_info.trade_allowed,
-                'trade_expert': account_info.trade_expert
+                'login': info.login, 'balance': info.balance, 'equity': info.equity,
+                'margin': info.margin, 'free_margin': info.margin_free,
+                'leverage': info.leverage, 'currency': info.currency,
+                'company': info.company, 'name': info.name, 'server': info.server,
+                'trade_mode': info.trade_mode, 'trade_allowed': info.trade_allowed,
+                'trade_expert': info.trade_expert,
             }
-
-        except Exception as e:
-            self.log_error(f"Error getting account info: {e}")
+        except Exception as exc:
+            self.log_error(f"Error getting account info: {exc}")
             return None
 
     def get_symbol_info(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """Get symbol information.
-
-        Args:
-            symbol: Trading symbol
-
-        Returns:
-            Dictionary with symbol info, None if error
-        """
         if not self.connected:
             self.log_error("Not connected to MT5")
             return None
-
         try:
-            symbol_info = mt5.symbol_info(symbol)
-            if symbol_info is None:
-                # Try to find symbol with different name
-                all_symbols = mt5.symbols_get()
-                for sym in all_symbols:
-                    if symbol in sym.name:
-                        symbol_info = sym
-                        break
-
-            if symbol_info is None:
+            resolved = self.resolve_symbol(symbol)
+            if not resolved:
                 self.log_warning(f"Symbol {symbol} not found")
                 return None
-
+            info = mt5.symbol_info(resolved)
+            if info is None:
+                return None
             return {
-                'name': symbol_info.name,
-                'bid': symbol_info.bid,
-                'ask': symbol_info.ask,
-                'spread': symbol_info.spread,
-                'digits': symbol_info.digits,
-                'point': symbol_info.point,
-                'trade_contract_size': symbol_info.trade_contract_size,
-                'trade_mode': symbol_info.trade_mode,
-                'swap_mode': symbol_info.swap_mode,
-                'margin_initial': symbol_info.margin_initial,
-                'margin_maintenance': symbol_info.margin_maintenance,
-                'volume_min': symbol_info.volume_min,
-                'volume_max': symbol_info.volume_max,
-                'volume_step': symbol_info.volume_step
+                'name': info.name,
+                'bid': info.bid,
+                'ask': info.ask,
+                'spread': info.spread,
+                'digits': info.digits,
+                'point': info.point,
+                'trade_contract_size': info.trade_contract_size,
+                'trade_tick_size': getattr(info, 'trade_tick_size', 0.0),
+                'trade_tick_value': getattr(info, 'trade_tick_value', 0.0),
+                'trade_tick_value_profit': getattr(info, 'trade_tick_value_profit', 0.0),
+                'trade_tick_value_loss': getattr(info, 'trade_tick_value_loss', 0.0),
+                'trade_mode': info.trade_mode,
+                'swap_mode': info.swap_mode,
+                'margin_initial': info.margin_initial,
+                'margin_maintenance': info.margin_maintenance,
+                'volume_min': info.volume_min,
+                'volume_max': info.volume_max,
+                'volume_step': info.volume_step,
             }
-
-        except Exception as e:
-            self.log_error(f"Error getting symbol info for {symbol}: {e}")
+        except Exception as exc:
+            self.log_error(f"Error getting symbol info for {symbol}: {exc}")
             return None
 
     def get_full_symbol_name(self, symbol: str) -> str:
-        """Get the full symbol name as it appears in MT5.
+        return self.resolve_symbol(symbol) or symbol
 
-        Args:
-            symbol: Trading symbol (e.g., 'EURUSD')
-
-        Returns:
-            Full symbol name (e.g., 'EURUSD.rfd')
-        """
-        symbol_info = self.get_symbol_info(symbol)
-        if symbol_info:
-            return symbol_info['name']
-
-        # Return original symbol if not found
-        return symbol
-
-    def get_current_price(self, symbol: str) -> dict[str, Timestamp | Series | DatetimeIndex | Any] | None:
-        """Get current bid/ask price for a symbol.
-
-        Args:
-            symbol: Trading symbol
-
-        Returns:
-            Dictionary with bid and ask prices, None if error
-        """
+    def get_current_price(self, symbol: str) -> Optional[Dict[str, Any]]:
         if not self.connected:
-            self.log_error("Not connected to MT5")
             return None
-
         try:
-            symbol_info = mt5.symbol_info_tick(symbol)
-            if symbol_info is None:
-                self.log_error(f"Failed to get tick data for {symbol}: {mt5.last_error()}")
+            resolved = self.resolve_symbol(symbol)
+            if not resolved:
                 return None
-
+            tick = mt5.symbol_info_tick(resolved)
+            if tick is None:
+                return None
             return {
-                'bid': symbol_info.bid,
-                'ask': symbol_info.ask,
-                'last': symbol_info.last,
-                'volume': symbol_info.volume,
-                'time': pd.to_datetime(symbol_info.time, unit='s')
+                'bid': tick.bid, 'ask': tick.ask, 'last': tick.last,
+                'volume': tick.volume, 'time': pd.to_datetime(tick.time, unit='s'),
             }
-
-        except Exception as e:
-            self.log_error(f"Error getting current price for {symbol}: {e}")
+        except Exception as exc:
+            self.log_error(f"Error getting current price for {symbol}: {exc}")
             return None
 
-    def get_multiple_symbols_data(self, symbols: List[str],
-                                  timeframe: str,
+    def get_multiple_symbols_data(self, symbols: List[str], timeframe: str,
                                   bars: int = 100) -> Dict[str, pd.DataFrame]:
-        """Get data for multiple symbols.
-
-        Args:
-            symbols: List of trading symbols
-            timeframe: Timeframe string
-            bars: Number of bars to retrieve
-
-        Returns:
-            Dictionary mapping symbol to DataFrame
-        """
-        data = {}
-        for symbol in symbols:
-            df = self.get_rates(symbol, timeframe, bars)
-            if not df.empty:
-                data[symbol] = df
-            else:
-                self.log_warning(f"No data for {symbol}")
-
-        return data
+        return {symbol: df for symbol in symbols
+                if not (df := self.get_rates(symbol, timeframe, bars)).empty}
 
     def is_symbol_available(self, symbol: str) -> bool:
-        """Check if a symbol is available in MT5.
-
-        Args:
-            symbol: Trading symbol
-
-        Returns:
-            True if symbol is available, False otherwise
-        """
-        if not self.connected:
-            return False
-
-        try:
-            symbol_info = mt5.symbol_info(symbol)
-            return symbol_info is not None
-        except:
-            return False
+        return self.resolve_symbol(symbol) is not None if self.connected else False
 
     def get_server_time(self) -> Optional[datetime]:
-        """Get current server time.
-
-        Returns:
-            Server datetime, None if error
-        """
         if not self.connected:
             return None
-
         try:
-            time = mt5.symbol_info_tick(config.SYMBOL).time
-            return pd.to_datetime(time, unit='s')
-        except:
-            return datetime.now()
+            resolved = self.resolve_symbol(config.SYMBOL)
+            if resolved:
+                tick = mt5.symbol_info_tick(resolved)
+                if tick:
+                    return pd.to_datetime(tick.time, unit='s').to_pydatetime()
+        except Exception:
+            pass
+        return datetime.now()
 
     def place_order(self, symbol: str, order_type: int, volume: float,
-                    sl: float = 0.0, tp: float = 0.0, comment: str = "AI_Trader_Demo") -> Optional[int]:
-        """
-        Открывает ордер на покупку или продажу.
-
-        Args:
-            symbol: Торговый символ (например, 'EURUSDrfd')
-            order_type: mt5.ORDER_TYPE_BUY или mt5.ORDER_TYPE_SELL
-            volume: Объем сделки (лота)
-            sl: Stop Loss (цена)
-            tp: Take Profit (цена)
-            comment: Комментарий к ордеру
-
-        Returns:
-            Номер тикета ордера при успехе, None при ошибке
-        """
+                    sl: float = 0.0, tp: float = 0.0,
+                    comment: str = "AI_Trader_Demo") -> Optional[int]:
         if not self.connected:
             self.log_error("Невозможно открыть ордер: нет подключения к MT5")
             return None
-
-        # ЖЕСТКАЯ ПРОВЕРКА ДЕМО-РЕЖИМА
         if not config.DEMO_MODE:
-            self.log_error(
-                "🚨 КРИТИЧЕСКАЯ ОШИБКА: Попытка торговли в РЕАЛЬНОМ режиме! Торговля заблокирована в целях безопасности.")
+            self.log_error("Торговля заблокирована: DEMO_MODE должен быть включен")
             return None
-
         try:
-            # Получаем текущую цену для расчета отклонения
-            tick = mt5.symbol_info_tick(symbol)
+            resolved = self.resolve_symbol(symbol)
+            if not resolved:
+                self.log_error(f"Не найден символ {symbol}")
+                return None
+            tick = mt5.symbol_info_tick(resolved)
             if tick is None:
-                self.log_error(f"Не удалось получить тик для {symbol}")
                 return None
-
-            # Определяем цену и тип заполнения
-            if order_type == mt5.ORDER_TYPE_BUY:
-                price = tick.ask
-                type_filling = mt5.ORDER_FILLING_IOC
-            else:
-                price = tick.bid
-                type_filling = mt5.ORDER_FILLING_IOC
-
-            # Формируем запрос
+            price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
             request = {
-                "action": mt5.TRADE_ACTION_DEAL,
-                "symbol": symbol,
-                "volume": volume,
-                "type": order_type,
-                "price": price,
-                "sl": sl,
-                "tp": tp,
-                "deviation": 20,  # Максимальное отклонение цены в пунктах
-                "magic": 123456,  # Уникальный номер советника
-                "comment": comment,
-                "type_time": mt5.ORDER_TIME_GTC,
-                "type_filling": type_filling,
+                'action': mt5.TRADE_ACTION_DEAL, 'symbol': resolved,
+                'volume': volume, 'type': order_type, 'price': price,
+                'sl': sl, 'tp': tp, 'deviation': 20, 'magic': 123456,
+                'comment': comment, 'type_time': mt5.ORDER_TIME_GTC,
+                'type_filling': mt5.ORDER_FILLING_IOC,
             }
-
-            # Отправляем запрос
             result = mt5.order_send(request)
-
-            if result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.log_error(f"Ошибка открытия ордера {comment}: {result.retcode} - {result.comment}")
+            if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+                self.log_error(f"Ошибка открытия ордера {comment}: {getattr(result, 'retcode', None)} - {getattr(result, 'comment', '')}")
                 return None
-
-            self.log_info(f"✅ Ордер успешно открыт! Тикет: {result.order}, Цена: {price}, Объем: {volume}")
+            self.log_info(f"Ордер успешно открыт: {result.order}, цена {price}, объем {volume}")
             return result.order
-
-        except Exception as e:
-            self.log_error(f"Исключение при открытии ордера: {e}")
+        except Exception as exc:
+            self.log_error(f"Исключение при открытии ордера: {exc}")
             return None
 
     def __del__(self):
-        """Destructor to ensure disconnection."""
         try:
             self.disconnect()
-        except:
+        except Exception:
             pass
 
 
-# Global MT5 connector instance
 _mt5_connector = None
 
 
 def get_mt5_connector() -> MT5Connector:
-    """Get or create global MT5 connector instance.
-
-    Returns:
-        MT5Connector instance
-    """
     global _mt5_connector
     if _mt5_connector is None:
         _mt5_connector = MT5Connector()
