@@ -3,7 +3,6 @@ from typing import List, Dict, Any, Optional
 from utils.logger import LoggingMixin
 import config
 
-
 class Backtester(LoggingMixin):
     """
     Продвинутый движок бэктестинга с динамическим расчетом лота
@@ -22,8 +21,8 @@ class Backtester(LoggingMixin):
         self.trades: List[Dict[str, Any]] = []
         self.skipped_trades: List[Dict[str, Any]] = []
         self.log_info(
-            f"Backtester initialized. Balance: {self.initial_balance}, "
-            f"Risk per trade: {risk_per_trade*100:.1f}%"
+            f"Backtester initialized. Balance: {self.initial_balance},  "
+            f"Risk per trade: {self.risk_per_trade*100:.2f}% "  # ИСПРАВЛЕНО: используем self.risk_per_trade
         )
 
     def _calculate_sl_tp_atr(self, df: pd.DataFrame, entry_index: int, signal_type: str) -> tuple:
@@ -31,17 +30,14 @@ class Backtester(LoggingMixin):
         if 'atr_14' not in df.columns:
             self.log_error("ATR не рассчитан в DataFrame")
             return None, None
-
         atr_value = df.iloc[entry_index]['atr_14']
         entry_price = df.iloc[entry_index]['open']
-
         if signal_type == 'bullish':
             sl_price = entry_price - (atr_value * self.atr_sl_multiplier)
             tp_price = entry_price + (atr_value * self.atr_tp_multiplier)
         else:
             sl_price = entry_price + (atr_value * self.atr_sl_multiplier)
             tp_price = entry_price - (atr_value * self.atr_tp_multiplier)
-
         return sl_price, tp_price
 
     def _check_sl_tp_hit(self, df: pd.DataFrame, start_index: int,
@@ -50,7 +46,6 @@ class Backtester(LoggingMixin):
         """Проверяет, какой уровень (SL или TP) был достигнут первым."""
         for i in range(start_index, min(start_index + max_bars, len(df))):
             bar = df.iloc[i]
-
             if signal_type == 'bullish':
                 if bar['low'] <= sl_price:
                     return {'result': 'loss', 'exit_price': sl_price, 'bars_held': i - start_index}
@@ -61,7 +56,6 @@ class Backtester(LoggingMixin):
                     return {'result': 'loss', 'exit_price': sl_price, 'bars_held': i - start_index}
                 if bar['low'] <= tp_price:
                     return {'result': 'win', 'exit_price': tp_price, 'bars_held': i - start_index}
-
         exit_index = min(start_index + max_bars, len(df) - 1)
         exit_price = df.iloc[exit_index]['close']
         return {'result': 'neutral', 'exit_price': exit_price, 'bars_held': exit_index - start_index}
@@ -91,20 +85,16 @@ class Backtester(LoggingMixin):
         point = symbol_info.get('point', 0.0001)
         contract_size = symbol_info.get('trade_contract_size', 100000)
         symbol_name = symbol_info.get('name', '')
-
         point_value_base = point * contract_size
         rate = self._get_conversion_rate(symbol_name)
-
         return point_value_base * rate
 
     def _calculate_dynamic_lot(self, entry_price: float, sl_price: float,
                                 symbol_info: dict) -> Optional[float]:
         """
         Рассчитывает динамический объем лота на основе риска от текущего баланса.
-
         Формула:
             lot = (balance × risk%) / (sl_distance_points × point_value_rub)
-
         Returns:
             Объем лота или None, если расчет невозможен / лот меньше минимального
         """
@@ -151,9 +141,10 @@ class Backtester(LoggingMixin):
         if calculated_lot_before_min < volume_min:
             # Рассчитываем минимально требуемый депозит для этой сделки
             min_required_deposit = (volume_min * sl_distance_points * point_value_rub) / self.risk_per_trade
+            # ИСПРАВЛЕНО: используем self.risk_per_trade вместо жестко зашитого "1%"
             self.log_warning(
                 f"⚠️ Сделка пропущена: расчетный лот {calculated_lot_before_min:.4f} < "
-                f"минимального {volume_min}. Требуемый депозит для 1% риска: "
+                f"минимального {volume_min}. Требуемый депозит для {self.risk_per_trade*100:.2f}% риска: "
                 f"{min_required_deposit:,.0f} RUB (текущий: {self.balance:,.0f} RUB)"
             )
             return None
@@ -195,7 +186,6 @@ class Backtester(LoggingMixin):
                 continue
 
             signal_type = signal.get('type', 'bullish')
-
             if signal_type not in ['bullish', 'bearish']:
                 continue
 
@@ -233,7 +223,6 @@ class Backtester(LoggingMixin):
             point = symbol_info.get('point', 0.0001)
             contract_size = symbol_info.get('trade_contract_size', 100000)
             rate = self._get_conversion_rate(symbol_info.get('name', ''))
-
             pnl_base = price_diff * contract_size * lot
             pnl_rub = pnl_base * rate
 
@@ -256,8 +245,8 @@ class Backtester(LoggingMixin):
                 'pnl_rub': net_pnl_rub,
                 'bars_held': exit_info['bars_held']
             }
-
             self.trades.append(trade_result)
+
             total_pnl_rub += net_pnl_rub
             current_balance += net_pnl_rub
             self.balance = current_balance  # Compound-эффект
@@ -307,4 +296,5 @@ class Backtester(LoggingMixin):
             f"Win Rate: {stats['win_rate']}, PnL: {total_pnl_rub:.2f} RUB, "
             f"Profit Factor: {stats['profit_factor']}, Avg Lot: {avg_lot:.4f}"
         )
+
         return stats

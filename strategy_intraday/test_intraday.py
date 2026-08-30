@@ -14,14 +14,14 @@ TIMEFRAME_MAP = {
 
 
 def run_intraday_backtest(
-    symbol: str,
-    timeframe_str: str,
-    bars: int,
-    initial_balance: float,
-    signal_generator: Callable[[pd.DataFrame], List[Dict[str, Any]]],
-    sl_mult: float = 1.5,
-    tp_mult: float = 3.0,
-    risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР: риск на сделку (по умолчанию 1%)
+        symbol: str,
+        timeframe_str: str,
+        bars: int,
+        initial_balance: float,
+        signal_generator: Callable[[pd.DataFrame], List[Dict[str, Any]]],
+        sl_mult: float = 1.5,
+        tp_mult: float = 3.0,
+        risk_per_trade: float = 0.01  # <-- Риск на сделку (по умолчанию 1%)
 ):
     """Универсальный раннер, адаптированный под твой Backtester"""
     if timeframe_str not in TIMEFRAME_MAP:
@@ -65,12 +65,12 @@ def run_intraday_backtest(
 
 
 def test_multiple_timeframes(
-    symbol: str,
-    timeframes: list[str],
-    bars: int,
-    initial_balance: float,
-    signal_generator: Callable,
-    risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР
+        symbol: str,
+        timeframes: list[str],
+        bars: int,
+        initial_balance: float,
+        signal_generator: Callable,
+        risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР
 ):
     """Прогоняет стратегию на нескольких таймфреймах"""
     results = {}
@@ -86,7 +86,7 @@ def test_multiple_timeframes(
             signal_generator=signal_generator,
             sl_mult=1.0,
             tp_mult=2.0,
-            risk_per_trade=risk_per_trade  # <-- ПЕРЕДАЕМ РИСК
+            risk_per_trade=risk_per_trade  # <-- ИСПРАВЛЕНО: убран пробел
         )
         if stats:
             results[tf] = stats
@@ -113,6 +113,7 @@ def _calculate_atr_inline(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 
 def _calculate_adx_inline(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
+    # Упрощенный расчет ADX для бэктеста (достаточный для фильтрации)
     up_move = df['high'] - df['high'].shift(1)
     down_move = df['low'].shift(1) - df['low']
     pos_dm = ((up_move > down_move) & (up_move > 0)) * up_move
@@ -133,16 +134,16 @@ def _calculate_adx_inline(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 
 def run_mtf_backtest(
-    symbol: str,
-    main_timeframe: str,
-    older_timeframe: str,
-    bars_main: int,
-    bars_older: int,
-    initial_balance: float,
-    signal_generator: callable,
-    sl_mult: float = 1.5,
-    tp_mult: float = 3.0,
-    risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР
+        symbol: str,
+        main_timeframe: str,  # Рабочий ТФ (M15)
+        older_timeframe: str,  # Старший ТФ (H1)
+        bars_main: int,
+        bars_older: int,
+        initial_balance: float,
+        signal_generator: callable,  # Функция принимает (df_main, df_older)
+        sl_mult: float = 1.5,
+        tp_mult: float = 3.0,
+        risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР
 ):
     """Запуск бэктеста с мульти-таймфреймовым анализом"""
     connector = get_mt5_connector()
@@ -180,6 +181,7 @@ def run_mtf_backtest(
         atr_tp_multiplier=tp_mult
     )
 
+    # Бэктестер работает на df_main (рабочий ТФ)
     stats = backtester.run(df_main, connector, signals, symbol)
     connector.disconnect()
     return stats
