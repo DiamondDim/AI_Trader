@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from utils.logger import LoggingMixin
 
@@ -57,11 +58,13 @@ class Indicators(LoggingMixin):
         tr3 = (low - close.shift(1)).abs()
         true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
         atr = true_range.ewm(span=period, adjust=False).mean()
-        safe_atr = atr.replace(0, pd.NA)
 
+        # Keep the series numeric. pd.NA changes the Series dtype to object and
+        # breaks pandas EWM on Python/pandas versions used by the project.
+        safe_atr = atr.mask(atr == 0, np.nan)
         plus_di = 100 * plus_dm.ewm(span=period, adjust=False).mean() / safe_atr
         minus_di = 100 * minus_dm.ewm(span=period, adjust=False).mean() / safe_atr
-        denominator = (plus_di + minus_di).replace(0, pd.NA)
+        denominator = (plus_di + minus_di).mask(lambda s: s == 0, np.nan)
         dx = 100 * (plus_di - minus_di).abs() / denominator
         adx = dx.ewm(span=period, adjust=False).mean()
 
