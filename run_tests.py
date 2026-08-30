@@ -1,19 +1,12 @@
-"""Единый интерактивный launcher для тестовых runners проекта AI Trader.
-
-Запускается из корня проекта:
-    python run_tests.py
-
-Каждый выбранный тест запускается в отдельном процессе, а весь stdout/stderr
-сохраняется в одноимённый TXT-файл в каталоге test_results/.
-"""
+"""Единый интерактивный launcher для тестовых runners проекта AI Trader."""
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 RESULTS_DIR = ROOT / "test_results"
@@ -57,7 +50,7 @@ def run_test(filename: str) -> int:
 
     header = (
         "=" * 80 + "\n"
-        f"AI TRADER TEST RESULT\n"
+        "AI TRADER TEST RESULT\n"
         f"Runner: {filename}\n"
         f"Started: {started:%Y-%m-%d %H:%M:%S}\n"
         "=" * 80 + "\n\n"
@@ -67,6 +60,12 @@ def run_test(filename: str) -> int:
     print(f"📄 Результат: {output_file}")
     print("─" * 70)
 
+    env = os.environ.copy()
+    # Force UTF-8 for child Python processes. This prevents Windows cp1251
+    # consoles from crashing runners that contain Unicode/emoji output.
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+
     try:
         with output_file.open("w", encoding="utf-8") as log:
             log.write(header)
@@ -75,6 +74,7 @@ def run_test(filename: str) -> int:
             process = subprocess.Popen(
                 [sys.executable, "-u", str(script)],
                 cwd=ROOT,
+                env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -85,7 +85,7 @@ def run_test(filename: str) -> int:
 
             assert process.stdout is not None
             for line in process.stdout:
-                print(line, end="")
+                print(line, end="", flush=True)
                 log.write(line)
                 log.flush()
 
