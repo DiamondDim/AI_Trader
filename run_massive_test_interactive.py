@@ -1,20 +1,30 @@
-# run_massive_test_interactive.py
-"""
-Интерактивный скрипт для массового тестирования интрадей-стратегий
-с возможностью выбора символов, стратегий и таймфреймов.
-"""
+"""Интерактивное массовое тестирование доступных intraday-стратегий."""
+
+from datetime import datetime
+from typing import Dict, List
+
 import MetaTrader5 as mt5
 import config
-import sys
-from datetime import datetime
-from typing import List, Dict, Any
-from broker.mt5_connector import get_mt5_connector
-from strategy_intraday.test_intraday import run_intraday_backtest, run_mtf_backtest
 
-# Импорты стратегий
 from strategy_intraday.ema_pullback import generate_ema_pullback_signals
-from strategy_intraday.london_breakout import generate_london_breakout_signals
-from strategy_intraday.elder_triple_screen import generate_elder_signals
+from strategy_intraday.fibonacci_pro import generate_fibonacci_pro_signals
+from strategy_intraday.test_intraday import run_intraday_backtest
+
+
+STRATEGIES = {
+    "1": {
+        "name": "EMA Pullback (Откат к EMA50)",
+        "generator": generate_ema_pullback_signals,
+        "sl_mult": 1.0,
+        "tp_mult": 2.0,
+    },
+    "2": {
+        "name": "Fibonacci Pro",
+        "generator": generate_fibonacci_pro_signals,
+        "sl_mult": 1.5,
+        "tp_mult": 3.0,
+    },
+}
 
 
 def get_available_symbols():
@@ -22,357 +32,199 @@ def get_available_symbols():
     if not mt5.initialize():
         print(f"❌ Ошибка инициализации MT5: {mt5.last_error()}")
         return []
-
-    if not mt5.login(config.MT5_LOGIN, config.MT5_PASSWORD, config.MT5_SERVER):
-        print(f"❌ Ошибка логина: {mt5.last_error()}")
+    try:
+        if not mt5.login(config.MT5_LOGIN, config.MT5_PASSWORD, config.MT5_SERVER):
+            print(f"❌ Ошибка логина: {mt5.last_error()}")
+            return []
+        all_symbols = mt5.symbols_get() or []
+        currencies = ("EUR", "USD", "GBP", "JPY", "CHF", "AUD", "CAD", "NZD")
+        excluded = ("XAU", "XAG", "BTC", "ETH", "LTC")
+        return [
+            {
+                "name": s.name,
+                "description": s.description,
+                "spread": s.spread,
+                "digits": s.digits,
+            }
+            for s in all_symbols
+            if any(c in s.name for c in currencies)
+            and not any(x in s.name for x in excluded)
+        ]
+    finally:
         mt5.shutdown()
-        return []
-
-    print("✅ Подключение успешно!\n")
-
-    all_symbols = mt5.symbols_get()
-    major_currencies = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD']
-    forex_pairs = []
-
-    for symbol in all_symbols:
-        name = symbol.name
-        if any(curr in name for curr in major_currencies):
-            if not any(exclude in name for exclude in ['XAU', 'XAG', 'BTC', 'ETH', 'LTC']):
-                forex_pairs.append({
-                    'name': name,
-                    'description': symbol.description,
-                    'spread': symbol.spread,
-                    'digits': symbol.digits
-                })
-
-    mt5.shutdown()
-    return forex_pairs
 
 
 def display_symbols(symbols):
-    """Отображает нумерованный список символов."""
-    print(f"\n📊 Найдено {len(symbols)} основных валютных пар:\n")
-    print("=" * 70)
-    print(f"{'№':<4} {'Символ':<15} {'Описание':<30} {'Спред':<10}")
-    print("=" * 70)
+    print(f"\n📊 Найдено {len(symbols)} валютных инструментов:\n")
+    print("=" * 80)
+    print(f"{'№':<4} {'Символ':<15} {'Описание':<35} {'Спред':<8}")
+    print("=" * 80)
     for i, pair in enumerate(symbols, 1):
-        print(f"{i:<4} {pair['name']:<15} {pair['description']:<30} {pair['spread']:<10}")
-    print("=" * 70)
+        print(f"{i:<4} {pair['name']:<15} {pair['description']:<35} {pair['spread']:<8}")
+    print("=" * 80)
 
 
-def parse_selection(input_str, total_symbols):
-    """Парсит ввод пользователя и возвращает список выбранных индексов."""
-    selected_indices = []
-    parts = input_str.split(',')
-
-    for part in parts:
+def parse_selection(value: str, total: int) -> List[int]:
+    selected = []
+    for part in value.split(","):
         part = part.strip()
-        if '-' in part:
-            try:
-                start, end = part.split('-')
-                start = int(start.strip())
-                end = int(end.strip())
-                if 1 <= start <= total_symbols and 1 <= end <= total_symbols:
-                    for i in range(start, end + 1):
-                        if i not in selected_indices:
-                            selected_indices.append(i)
-                else:
-                    print(f"⚠️ Диапазон {start}-{end} выходит за пределы списка")
-            except ValueError:
-                print(f"⚠️ Неверный формат диапазона: {part}")
-        else:
-            try:
-                num = int(part)
-                if 1 <= num <= total_symbols:
-                    if num not in selected_indices:
-                        selected_indices.append(num)
-                else:
-                    print(f"⚠️ Номер {num} выходит за пределы списка (1-{total_symbols})")
-            except ValueError:
-                print(f"⚠️ Неверный номер: {part}")
-
-    return sorted(selected_indices)
+        try:
+            if "-" in part:
+                start, end = [int(x.strip()) for x in part.split("-", 1)]
+                if 1 <= start <= end <= total:
+                    selected.extend(range(start, end + 1))
+            else:
+                number = int(part)
+                if 1 <= number <= total:
+                    selected.append(number)
+        except ValueError:
+            continue
+    return sorted(set(selected))
 
 
 def select_symbols(symbols):
-    """Интерактивный выбор символов."""
     while True:
-        print("\n🎯 Выберите одну или несколько пар для тестирования:")
-        print("   Введите номера через запятую (например: 1,3,5)")
-        print("   Или диапазон (например: 1-5)")
-        print("   Или комбинацию (например: 1,3,5-8)")
-        print("   Введите 'all' для выбора всех пар")
-        print("   Введите 'q' для выхода\n")
-
-        user_input = input("Ваш выбор: ").strip().lower()
-
-        if user_input == 'q':
-            print("Выход из программы.")
+        value = input("\nВыберите пары (1,3,5-8 / all / q): ").strip().lower()
+        if value == "q":
             return []
-
-        if user_input == 'all':
-            print(f"✅ Выбраны все {len(symbols)} пар")
+        if value == "all":
             return list(range(1, len(symbols) + 1))
-
-        selected_indices = parse_selection(user_input, len(symbols))
-
-        if selected_indices:
-            print(f"\n✅ Выбрано {len(selected_indices)} пар:")
-            for idx in selected_indices:
-                print(f"   {idx}. {symbols[idx - 1]['name']} - {symbols[idx - 1]['description']}")
-
-            confirm = input("\nПодтвердить выбор? (y/n): ").strip().lower()
-            if confirm == 'y':
-                return selected_indices
-            else:
-                print("❌ Выбор отменен. Попробуйте снова.\n")
-        else:
-            print("❌ Не выбрано ни одной пары. Попробуйте снова.\n")
+        selected = parse_selection(value, len(symbols))
+        if selected:
+            return selected
+        print("❌ Неверный выбор.")
 
 
-def select_strategy():
-    """Интерактивный выбор стратегии."""
-    strategies = {
-        '1': {
-            'name': 'EMA Pullback (Откат к EMA50)',
-            'type': 'single_tf',
-            'generator': generate_ema_pullback_signals
-        },
-        '2': {
-            'name': 'London Breakout (Пробой азиатского диапазона)',
-            'type': 'single_tf',
-            'generator': generate_london_breakout_signals
-        },
-        '3': {
-            'name': 'Elder Triple Screen (Три экрана Элдера)',
-            'type': 'mtf',
-            'generator': generate_elder_signals
-        }
-    }
-
-    print("\n🎯 Выберите стратегию для тестирования:")
-    print("=" * 70)
-    for key, strat in strategies.items():
-        print(f"{key}. {strat['name']}")
-    print("=" * 70)
-
+def select_strategy() -> Dict:
+    print("\n🎯 Выберите стратегию:")
+    print("1. EMA Pullback")
+    print("2. Fibonacci Pro")
     while True:
-        choice = input("\nВаш выбор (1-3): ").strip()
-        if choice in strategies:
-            print(f"✅ Выбрана стратегия: {strategies[choice]['name']}")
-            return strategies[choice]
-        else:
-            print("❌ Неверный выбор. Попробуйте снова.")
+        choice = input("Ваш выбор (1-2): ").strip()
+        if choice in STRATEGIES:
+            return STRATEGIES[choice]
+        print("❌ Неверный выбор.")
 
 
-def select_timeframes(is_mtf: bool):
-    """Интерактивный выбор таймфреймов."""
-    if is_mtf:
-        print("\n🎯 Выберите таймфреймы для MTF стратегии:")
-        print("   Рабочий ТФ (M15) + Старший ТФ (H1)")
-        print("   Введите 'all' для тестирования на M15+H1 и M30+H1")
-        print("   Или введите конкретные комбинации через запятую:")
-        print("   Например: M15+H1, M30+H1")
-
-        while True:
-            choice = input("\nВаш выбор: ").strip().lower()
-            if choice == 'all':
-                return [('M15', 'H1'), ('M30', 'H1')]
-            elif '+' in choice:
-                combinations = []
-                for combo in choice.split(','):
-                    combo = combo.strip()
-                    if '+' in combo:
-                        main_tf, older_tf = combo.split('+')
-                        main_tf = main_tf.strip().upper()
-                        older_tf = older_tf.strip().upper()
-                        if main_tf in ['M5', 'M15', 'M30'] and older_tf in ['H1', 'H4']:
-                            combinations.append((main_tf, older_tf))
-                        else:
-                            print(f"⚠️ Неверная комбинация: {combo}")
-                if combinations:
-                    return combinations
-            print("❌ Неверный формат. Попробуйте снова.")
-    else:
-        print("\n🎯 Выберите таймфреймы для тестирования:")
-        print("   Введите номера через запятую (например: 1,2,3)")
-        print("   Или 'all' для всех таймфреймов")
-        print("   1. M5")
-        print("   2. M15")
-        print("   3. M30")
-
-        while True:
-            choice = input("\nВаш выбор: ").strip().lower()
-            if choice == 'all':
-                return ['M5', 'M15', 'M30']
-            else:
-                timeframes = []
-                for num in choice.split(','):
-                    num = num.strip()
-                    if num == '1':
-                        timeframes.append('M5')
-                    elif num == '2':
-                        timeframes.append('M15')
-                    elif num == '3':
-                        timeframes.append('M30')
-                if timeframes:
-                    return timeframes
-            print("❌ Неверный выбор. Попробуйте снова.")
+def select_timeframes() -> List[str]:
+    print("\n🎯 Выберите таймфреймы:")
+    print("1. M5")
+    print("2. M15")
+    print("3. M30")
+    print("4. H1")
+    print("5. Все (M5, M15, M30, H1)")
+    while True:
+        choice = input("Ваш выбор: ").strip().lower()
+        mapping = {"1": ["M5"], "2": ["M15"], "3": ["M30"], "4": ["H1"]}
+        if choice == "5" or choice == "all":
+            return ["M5", "M15", "M30", "H1"]
+        result = []
+        for item in choice.split(","):
+            result.extend(mapping.get(item.strip(), []))
+        if result:
+            return list(dict.fromkeys(result))
+        print("❌ Неверный выбор.")
 
 
-def run_massive_test(symbols: List[str], strategy: Dict, timeframes: List, initial_balance: float = 50000.0):
-    """Запускает массовое тестирование."""
+def run_massive_test(symbols: List[str], strategy: Dict, timeframes: List[str],
+                     initial_balance: float = 50000.0, bars: int = 5000,
+                     risk_per_trade: float = 0.01):
     results = []
-    total_tests = len(symbols) * len(timeframes)
-    current_test = 0
+    total = len(symbols) * len(timeframes)
+    current = 0
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    results_file = f"massive_test_results_{timestamp}.txt"
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    results_file = f"massive_test_results_{strategy['name'].replace(' ', '_')}_{timestamp}.txt"
-
-    print(f"\n{'=' * 80}")
-    print(f"🚀 ЗАПУСК МАССОВОГО ТЕСТИРОВАНИЯ")
+    print("\n" + "=" * 80)
+    print("🚀 МАССОВОЕ ТЕСТИРОВАНИЕ")
     print(f"Стратегия: {strategy['name']}")
-    print(f"Всего тестов: {total_tests}")
-    print(f"Депозит: {initial_balance} RUB")
-    print(f"Результаты будут сохранены в: {results_file}")
-    print(f"{'=' * 80}\n")
-
-    # Инициализируем файл результатов
-    with open(results_file, 'w', encoding='utf-8') as f:
-        f.write(f"{'=' * 100}\n")
-        f.write(f"РЕЗУЛЬТАТЫ МАССОВОГО ТЕСТИРОВАНИЯ\n")
-        f.write(f"Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Стратегия: {strategy['name']}\n")
-        f.write(f"Депозит: {initial_balance} RUB\n")
-        f.write(f"{'=' * 100}\n\n")
+    print(f"Тестов: {total} | Баров: {bars} | Депозит: {initial_balance}")
+    print("=" * 80)
 
     for symbol in symbols:
-        for tf_config in timeframes:
-            current_test += 1
-            progress = (current_test / total_tests) * 100
-
-            if strategy['type'] == 'mtf':
-                main_tf, older_tf = tf_config
-                tf_label = f"{main_tf}+{older_tf}"
-            else:
-                tf_label = tf_config
-
-            print(f"[{current_test}/{total_tests}] ({progress:.1f}%) Тестируем {symbol} на {tf_label}...", end=' ',
-                  flush=True)
-
+        for timeframe in timeframes:
+            current += 1
+            print(f"[{current}/{total}] {symbol} {timeframe}...", end=" ", flush=True)
             try:
-                if strategy['type'] == 'mtf':
-                    main_tf, older_tf = tf_config
-                    stats = run_mtf_backtest(
-                        symbol=symbol,
-                        main_timeframe=main_tf,
-                        older_timeframe=older_tf,
-                        bars_main=5000,
-                        bars_older=2000,
-                        initial_balance=initial_balance,
-                        signal_generator=strategy['generator'],
-                        sl_mult=1.5,
-                        tp_mult=3.0
-                    )
-                else:
-                    stats = run_intraday_backtest(
-                        symbol=symbol,
-                        timeframe_str=tf_config,
-                        bars=5000,
-                        initial_balance=initial_balance,
-                        signal_generator=strategy['generator'],
-                        sl_mult=1.0,
-                        tp_mult=2.0
-                    )
-
-                if stats:
-                    result = {
-                        'symbol': symbol,
-                        'timeframe': tf_label,
-                        'total_trades': stats['total_trades'],
-                        'win_rate': float(stats['win_rate'].replace('%', '')),
-                        'profit_factor': float(stats['profit_factor']) if stats['profit_factor'] != 'inf' else 999.99,
-                        'pnl_rub': stats['total_pnl_rub'],
-                        'max_drawdown_percent': float(stats['max_drawdown_percent'].replace('%', ''))
-                    }
-                    results.append(result)
-
-                    # Сохраняем в файл
-                    with open(results_file, 'a', encoding='utf-8') as f:
-                        f.write(f"{symbol:<15} | {tf_label:<10} | Сделок: {result['total_trades']:<5} | "
-                                f"Винрейт: {result['win_rate']:.2f}% | PF: {result['profit_factor']:.2f} | "
-                                f"PnL: {result['pnl_rub']:.2f} RUB | Просадка: {result['max_drawdown_percent']:.2f}%\n")
-
-                    print(f"✅ WR={result['win_rate']:.1f}%, PF={result['profit_factor']:.2f}")
-                else:
+                stats = run_intraday_backtest(
+                    symbol=symbol,
+                    timeframe_str=timeframe,
+                    bars=bars,
+                    initial_balance=initial_balance,
+                    signal_generator=strategy["generator"],
+                    sl_mult=strategy["sl_mult"],
+                    tp_mult=strategy["tp_mult"],
+                    risk_per_trade=risk_per_trade,
+                )
+                if not stats:
                     print("❌ Нет данных")
+                    continue
+                pf = stats["profit_factor"]
+                pf_value = float(pf) if pf != "inf" else 999.99
+                result = {
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "total_trades": stats["total_trades"],
+                    "win_rate": stats["win_rate"],
+                    "profit_factor": pf_value,
+                    "pnl_rub": stats["total_pnl_rub"],
+                    "max_drawdown_percent": stats["max_drawdown_percent"],
+                }
+                results.append(result)
+                print(f"✅ WR={result['win_rate']}, PF={pf_value:.2f}")
+            except Exception as exc:
+                print(f"❌ {exc}")
 
-            except Exception as e:
-                print(f"❌ Ошибка: {e}")
-                continue
-
-    # Финальная сортировка и сохранение
-    valid_results = [r for r in results if r['total_trades'] > 0]
-    sorted_results = sorted(valid_results, key=lambda x: x['profit_factor'], reverse=True)
-
-    with open(results_file, 'a', encoding='utf-8') as f:
-        f.write(f"\n{'=' * 100}\n")
-        f.write(f"🏆 ТОП-30 ЛУЧШИХ РЕЗУЛЬТАТОВ:\n")
-        f.write(f"{'=' * 100}\n")
-        f.write(
-            f"{'№':<4} {'Символ':<15} {'ТФ':<10} {'Сделок':<8} {'Винрейт':<10} {'PF':<8} {'PnL (RUB)':<12} {'Просадка':<10}\n")
-        f.write(f"{'-' * 100}\n")
-
-        for idx, res in enumerate(sorted_results[:30], 1):
-            f.write(f"{idx:<4} {res['symbol']:<15} {res['timeframe']:<10} "
-                    f"{res['total_trades']:<8} {res['win_rate']:<10.2f} "
-                    f"{res['profit_factor']:<8.2f} {res['pnl_rub']:<12.2f} "
-                    f"{res['max_drawdown_percent']:<10.2f}\n")
-
-    print(f"\n{'=' * 80}")
-    print(f"✅ МАССОВОЕ ТЕСТИРОВАНИЕ ЗАВЕРШЕНО")
-    print(f"Результаты сохранены в: {results_file}")
-    print(f"{'=' * 80}")
-
+    results.sort(key=lambda x: x["profit_factor"], reverse=True)
+    with open(results_file, "w", encoding="utf-8") as f:
+        f.write("=" * 100 + "\n")
+        f.write("РЕЗУЛЬТАТЫ МАССОВОГО ТЕСТИРОВАНИЯ\n")
+        f.write(f"Дата: {datetime.now():%Y-%m-%d %H:%M:%S}\n")
+        f.write(f"Стратегия: {strategy['name']}\n")
+        f.write("=" * 100 + "\n")
+        for idx, result in enumerate(results, 1):
+            f.write(
+                f"{idx:>3}. {result['symbol']:<15} {result['timeframe']:<5} "
+                f"Trades={result['total_trades']:<5} WR={result['win_rate']:<8} "
+                f"PF={result['profit_factor']:<8.2f} PnL={result['pnl_rub']:.2f} "
+                f"DD={result['max_drawdown_percent']}\n"
+            )
+    print(f"\n✅ Результаты сохранены: {results_file}")
     return results
 
 
 def main():
-    print("🔍 Подключаемся к MT5 для получения списка символов...\n")
     symbols = get_available_symbols()
-
     if not symbols:
         print("❌ Не удалось получить список символов.")
         return
-
-    # Отображаем список
     display_symbols(symbols)
-
-    # Выбор символов
-    selected_indices = select_symbols(symbols)
-    if not selected_indices:
+    selected = select_symbols(symbols)
+    if not selected:
         return
-
-    selected_symbols = [symbols[idx - 1]['name'] for idx in selected_indices]
-
-    # Выбор стратегии
     strategy = select_strategy()
+    timeframes = select_timeframes()
 
-    # Выбор таймфреймов
-    is_mtf = strategy['type'] == 'mtf'
-    timeframes = select_timeframes(is_mtf)
-
-    # Депозит
-    print("\n💰 Введите начальный депозит (по умолчанию 50000 RUB):")
-    balance_input = input().strip()
+    bars_input = input("Количество баров [5000]: ").strip()
     try:
-        initial_balance = float(balance_input) if balance_input else 50000.0
+        bars = int(bars_input) if bars_input else 5000
     except ValueError:
-        print("⚠️ Неверный формат, используем 50000 RUB")
-        initial_balance = 50000.0
+        bars = 5000
 
-    # Запускаем тест
-    run_massive_test(selected_symbols, strategy, timeframes, initial_balance)
+    balance_input = input("Начальный депозит [50000]: ").strip()
+    try:
+        balance = float(balance_input) if balance_input else 50000.0
+    except ValueError:
+        balance = 50000.0
+
+    risk_input = input("Риск на сделку % [1.0]: ").strip()
+    try:
+        risk = float(risk_input) / 100.0 if risk_input else 0.01
+    except ValueError:
+        risk = 0.01
+
+    selected_symbols = [symbols[i - 1]["name"] for i in selected]
+    run_massive_test(selected_symbols, strategy, timeframes, balance, bars, risk)
 
 
 if __name__ == "__main__":
