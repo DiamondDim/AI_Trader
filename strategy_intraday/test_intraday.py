@@ -1,16 +1,27 @@
 import pandas as pd
-from datetime import datetime
 from typing import Callable, List, Dict, Any
 from broker.mt5_connector import get_mt5_connector
 from core.backtesting import Backtester
+from core.indicators import Indicators
 
-# Маппинг таймфреймов (строки, которые понимает твой get_rates)
+# Маппинг таймфреймов (строки, которые понимает get_rates)
 TIMEFRAME_MAP = {
     'M5': 'M5',
     'M15': 'M15',
     'M30': 'M30',
     'H1': 'H1'
 }
+
+
+def _ensure_core_indicators(df: pd.DataFrame, include_ema_200: bool = True) -> pd.DataFrame:
+    """Ensure the canonical project indicator set is available.
+
+    The runner uses core.Indicators as the single source of truth. Existing
+    strategy-specific fallback calculations are intentionally kept below for
+    backward compatibility with older external callers/fixtures.
+    """
+    indicators = Indicators()
+    return indicators.add_all(df, include_ema_200=include_ema_200)
 
 
 def run_intraday_backtest(
@@ -21,9 +32,9 @@ def run_intraday_backtest(
     signal_generator: Callable[[pd.DataFrame], List[Dict[str, Any]]],
     sl_mult: float = 1.5,
     tp_mult: float = 3.0,
-    risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР: риск на сделку (по умолчанию 1%)
+    risk_per_trade: float = 0.01
 ):
-    """Универсальный раннер, адаптированный под твой Backtester"""
+    """Universal intraday runner using the shared Backtester and Indicators."""
     if timeframe_str not in TIMEFRAME_MAP:
         raise ValueError(f"Таймфрейм {timeframe_str} не поддерживается.")
 
@@ -32,36 +43,31 @@ def run_intraday_backtest(
         print("[!] Ошибка подключения к MT5. Проверь config.py")
         return None
 
-    print(f"[*] Загрузка {bars} баров для {symbol} ({timeframe_str})...")
-    df = connector.get_rates(symbol, timeframe_str, bars)
+    try:
+        print(f"[*] Загрузка {bars} баров для {symbol} ({timeframe_str})...")
+        df = connector.get_rates(symbol, timeframe_str, bars)
 
-    if df.empty:
-        print("[!] Не удалось получить данные.")
+        if df.empty:
+            print("[!] Не удалось получить данные.")
+            return None
+
+        # Canonical indicator calculation shared by all strategies/runners.
+        df = _ensure_core_indicators(df, include_ema_200=True)
+
+        print("[*] Генерация сигналов стратегии...")
+        signals = signal_generator(df)
+        print(f"[*] Найдено {len(signals)} потенциальных сделок.")
+
+        backtester = Backtester(
+            initial_balance=initial_balance,
+            risk_per_trade=risk_per_trade,
+            atr_sl_multiplier=sl_mult,
+            atr_tp_multiplier=tp_mult
+        )
+
+        return backtester.run(df, connector, signals, symbol)
+    finally:
         connector.disconnect()
-        return None
-
-    # === ГАРАНТИЯ НАЛИЧИЯ КОЛОНОК ДЛЯ ТВОЕГО BACKTESTER ===
-    if 'atr_14' not in df.columns:
-        df = _calculate_atr_inline(df, 14)
-    if 'adx_14' not in df.columns:
-        df = _calculate_adx_inline(df, 14)
-
-    print(f"[*] Генерация сигналов стратегии...")
-    signals = signal_generator(df)
-    print(f"[*] Найдено {len(signals)} потенциальных сделок.")
-
-    # Инициализируем твой продвинутый бэктестер
-    backtester = Backtester(
-        initial_balance=initial_balance,
-        risk_per_trade=risk_per_trade,  # <-- ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ РИСК
-        atr_sl_multiplier=sl_mult,
-        atr_tp_multiplier=tp_mult
-    )
-
-    # Запускаем тест
-    stats = backtester.run(df, connector, signals, symbol)
-    connector.disconnect()
-    return stats
 
 
 def test_multiple_timeframes(
@@ -70,9 +76,9 @@ def test_multiple_timeframes(
     bars: int,
     initial_balance: float,
     signal_generator: Callable,
-    risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР
+    risk_per_trade: float = 0.01
 ):
-    """Прогоняет стратегию на нескольких таймфреймах"""
+    """Run the same strategy through the shared runner on multiple timeframes."""
     results = {}
     for tf in timeframes:
         print(f"\n{'=' * 60}")
@@ -86,7 +92,7 @@ def test_multiple_timeframes(
             signal_generator=signal_generator,
             sl_mult=1.0,
             tp_mult=2.0,
-            risk_per_trade=risk_per_trade  # <-- ПЕРЕДАЕМ РИСК
+            risk_per_trade=risk_per_trade
         )
         if stats:
             results[tf] = stats
@@ -101,7 +107,7 @@ def test_multiple_timeframes(
     return results
 
 
-# --- Встроенные помощники на случай, если core.indicators пуст ---
+# --- Legacy helpers retained for compatibility with direct external imports. ---
 def _calculate_atr_inline(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     high_low = df['high'] - df['low']
     high_close = (df['high'] - df['close'].shift()).abs()
@@ -113,23 +119,9 @@ def _calculate_atr_inline(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
 
 
 def _calculate_adx_inline(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
-    up_move = df['high'] - df['high'].shift(1)
-    down_move = df['low'].shift(1) - df['low']
-    pos_dm = ((up_move > down_move) & (up_move > 0)) * up_move
-    neg_dm = ((down_move > up_move) & (down_move > 0)) * down_move
-
-    tr = pd.concat(
-        [df['high'] - df['low'], (df['high'] - df['close'].shift()).abs(),
-         (df['low'] - df['close'].shift()).abs()],
-        axis=1).max(axis=1)
-    atr = tr.rolling(window=period).mean()
-
-    pos_di = 100 * (pos_dm.rolling(window=period).mean() / atr)
-    neg_di = 100 * (neg_dm.rolling(window=period).mean() / atr)
-
-    dx = 100 * (pos_di - neg_di).abs() / (pos_di + neg_di)
-    df['adx_14'] = dx.rolling(window=period).mean()
-    return df
+    # Keep the legacy entry point, but use the canonical implementation so
+    # there is no second ADX formula in the project.
+    return Indicators().add_adx(df, period=period)
 
 
 def run_mtf_backtest(
@@ -139,47 +131,40 @@ def run_mtf_backtest(
     bars_main: int,
     bars_older: int,
     initial_balance: float,
-    signal_generator: callable,
+    signal_generator: Callable,
     sl_mult: float = 1.5,
     tp_mult: float = 3.0,
-    risk_per_trade: float = 0.01  # <-- НОВЫЙ ПАРАМЕТР
+    risk_per_trade: float = 0.01
 ):
-    """Запуск бэктеста с мульти-таймфреймовым анализом"""
+    """Run a multi-timeframe backtest using canonical indicators."""
     connector = get_mt5_connector()
     if not connector.connect():
         print("[!] Ошибка подключения к MT5")
         return None
 
-    print(f"[*] Загрузка MTF данных для {symbol}: {main_timeframe} + {older_timeframe}")
-    df_main = connector.get_rates(symbol, main_timeframe, bars_main)
-    df_older = connector.get_rates(symbol, older_timeframe, bars_older)
+    try:
+        print(f"[*] Загрузка MTF данных для {symbol}: {main_timeframe} + {older_timeframe}")
+        df_main = connector.get_rates(symbol, main_timeframe, bars_main)
+        df_older = connector.get_rates(symbol, older_timeframe, bars_older)
 
-    if df_main.empty or df_older.empty:
-        print("[!] Не удалось получить данные")
+        if df_main.empty or df_older.empty:
+            print("[!] Не удалось получить данные")
+            return None
+
+        df_main = _ensure_core_indicators(df_main, include_ema_200=True)
+        df_older = _ensure_core_indicators(df_older, include_ema_200=True)
+
+        print("[*] Генерация MTF сигналов...")
+        signals = signal_generator(df_main, df_older)
+        print(f"[*] Найдено {len(signals)} сигналов")
+
+        backtester = Backtester(
+            initial_balance=initial_balance,
+            risk_per_trade=risk_per_trade,
+            atr_sl_multiplier=sl_mult,
+            atr_tp_multiplier=tp_mult
+        )
+
+        return backtester.run(df_main, connector, signals, symbol)
+    finally:
         connector.disconnect()
-        return None
-
-    # === КРИТИЧЕСКИЙ ФИКС: рассчитываем ATR на рабочем ТФ ДО передачи в бэктестер ===
-    if 'atr_14' not in df_main.columns:
-        print("[*] Рассчитываем ATR(14) на рабочем таймфрейме...")
-        tr = pd.concat([
-            df_main['high'] - df_main['low'],
-            (df_main['high'] - df_main['close'].shift()).abs(),
-            (df_main['low'] - df_main['close'].shift()).abs()
-        ], axis=1).max(axis=1)
-        df_main['atr_14'] = tr.rolling(window=14).mean()
-
-    print(f"[*] Генерация MTF сигналов...")
-    signals = signal_generator(df_main, df_older)
-    print(f"[*] Найдено {len(signals)} сигналов")
-
-    backtester = Backtester(
-        initial_balance=initial_balance,
-        risk_per_trade=risk_per_trade,  # <-- ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ РИСК
-        atr_sl_multiplier=sl_mult,
-        atr_tp_multiplier=tp_mult
-    )
-
-    stats = backtester.run(df_main, connector, signals, symbol)
-    connector.disconnect()
-    return stats
