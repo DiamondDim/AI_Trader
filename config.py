@@ -14,7 +14,8 @@ MT5_TIMEOUT = int(os.getenv("MT5_TIMEOUT", "60000"))
 # --- НАСТРОЙКИ ТОРГОВЛИ ---
 SYMBOL = os.getenv("AI_TRADER_SYMBOL", "EURUSDrfd")
 TIMEFRAME = os.getenv("AI_TRADER_TIMEFRAME", "H1")
-RISK_PER_TRADE = float(os.getenv("AI_TRADER_RISK_PER_TRADE", "0.01"))
+# Preserve the latest source-branch default (1.5%) while allowing environment override.
+RISK_PER_TRADE = float(os.getenv("AI_TRADER_RISK_PER_TRADE", "0.015"))
 
 # --- ПУТИ ---
 BASE_DIR = Path(__file__).parent
