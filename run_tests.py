@@ -54,16 +54,19 @@ def run_test(filename: str) -> int:
     # Force UTF-8 for child Python processes so Unicode output works on Windows.
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUNBUFFERED"] = "1"
 
     try:
         # One selected runner = one clean result file.
-        # No launcher headers/footers are added: the file contains only
-        # the actual stdout/stderr produced by the selected runner.
+        # The file contains only the actual stdout/stderr produced by the runner.
+        # The parent reads one character at a time so input() prompts (which do not
+        # end with a newline) are displayed immediately in the parent console.
         with output_file.open("w", encoding="utf-8") as log:
             process = subprocess.Popen(
                 [sys.executable, "-u", str(script)],
                 cwd=ROOT,
                 env=env,
+                stdin=None,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -73,9 +76,12 @@ def run_test(filename: str) -> int:
             )
 
             assert process.stdout is not None
-            for line in process.stdout:
-                print(line, end="", flush=True)
-                log.write(line)
+            while True:
+                char = process.stdout.read(1)
+                if char == "":
+                    break
+                print(char, end="", flush=True)
+                log.write(char)
                 log.flush()
 
             return_code = process.wait()
