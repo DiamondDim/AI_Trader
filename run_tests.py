@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -40,7 +39,6 @@ def result_path(filename: str) -> Path:
 def run_test(filename: str) -> int:
     script = ROOT / filename
     output_file = result_path(filename)
-    started = datetime.now()
 
     if not script.is_file():
         message = f"ОШИБКА: runner не найден: {script}\n"
@@ -48,29 +46,20 @@ def run_test(filename: str) -> int:
         print(message, end="")
         return 2
 
-    header = (
-        "=" * 80 + "\n"
-        "AI TRADER TEST RESULT\n"
-        f"Runner: {filename}\n"
-        f"Started: {started:%Y-%m-%d %H:%M:%S}\n"
-        "=" * 80 + "\n\n"
-    )
-
     print(f"\n▶ Запуск: {filename}")
     print(f"📄 Результат: {output_file}")
     print("─" * 70)
 
     env = os.environ.copy()
-    # Force UTF-8 for child Python processes. This prevents Windows cp1251
-    # consoles from crashing runners that contain Unicode/emoji output.
+    # Force UTF-8 for child Python processes so Unicode output works on Windows.
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
 
     try:
+        # One selected runner = one clean result file.
+        # No launcher headers/footers are added: the file contains only
+        # the actual stdout/stderr produced by the selected runner.
         with output_file.open("w", encoding="utf-8") as log:
-            log.write(header)
-            log.flush()
-
             process = subprocess.Popen(
                 [sys.executable, "-u", str(script)],
                 cwd=ROOT,
@@ -90,13 +79,6 @@ def run_test(filename: str) -> int:
                 log.flush()
 
             return_code = process.wait()
-            finished = datetime.now()
-            log.write(
-                "\n" + "=" * 80 + "\n"
-                f"Finished: {finished:%Y-%m-%d %H:%M:%S}\n"
-                f"Exit code: {return_code}\n"
-                "=" * 80 + "\n"
-            )
 
         status = "✅ УСПЕШНО" if return_code == 0 else f"❌ ОШИБКА (код {return_code})"
         print(f"\n{status}")
