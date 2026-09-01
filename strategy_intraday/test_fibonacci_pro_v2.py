@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from core.indicators import Indicators
 from strategy_intraday.fibonacci_pro_v2 import (
     _calculate_fibonacci_levels,
     _find_structure,
@@ -12,7 +13,7 @@ from strategy_intraday.fibonacci_pro_v2 import (
 def _ohlc(values):
     index = pd.date_range("2026-01-05 10:00", periods=len(values), freq="h")
     close = pd.Series(values, index=index, dtype=float)
-    return pd.DataFrame(
+    frame = pd.DataFrame(
         {
             "open": close.shift(1).fillna(close),
             "high": close + 0.2,
@@ -21,6 +22,7 @@ def _ohlc(values):
         },
         index=index,
     )
+    return Indicators().add_all(frame, include_ema_200=True)
 
 
 def test_fibonacci_levels_are_symmetric():
@@ -44,7 +46,7 @@ def test_short_structure_requires_lower_high_and_lower_low():
     assert _find_structure(bad, "bearish") is None
 
 
-def test_generator_handles_plain_ohlc_and_returns_diagnostics():
+def test_generator_handles_canonical_ohlc_and_returns_diagnostics():
     rng = np.random.default_rng(7)
     returns = rng.normal(0.0, 0.25, 320)
     values = 100 + np.cumsum(returns)
