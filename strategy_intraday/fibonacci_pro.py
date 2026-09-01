@@ -1,177 +1,426 @@
 """
-Fibonacci Pro Strategy (УЖЕСТОЧЁННАЯ ВЕРСИЯ)
-Стратегия на основе уровней Фибоначчи с динамическими зонами входа.
-Добавлены: фильтр силы свечи, ужесточённый ADX, фильтр волатильности.
-"""
-import pandas as pd
-from datetime import time
-from typing import List, Dict, Any, Tuple
+Fibonacci Pro — redesigned trend/pullback strategy.
 
+Основная идея:
+    1. Определяем направленный рынок по EMA 50/200 и наклону EMA 50.
+    2. Находим подтвержденный swing range только по уже закрытым барам.
+    3. Ждем откат в рабочую Fibonacci-зону 0.382–0.618.
+    4. Требуем подтверждение возврата цены в сторону тренда.
+    5. Фильтруем слабые/неактивные условия через ADX, ATR и размер свечи.
+
+Важно: функция возвращает только сигналы. Вход/SL/TP и размер позиции
+остаются ответственностью общего Backtester, чтобы стратегия была полностью
+совместима с существующим test runner.
+"""
+
+from datetime import time
+from typing import Any, Dict, List, Optional, Tuple
+
+import pandas as pd
+
+
+# Торговое окно оставлено совместимым с прежней версией, но dead zone убрана:
+# сама стратегия уже достаточно фильтрует качество входов.
 SESSION_START = time(10, 0)
 SESSION_END = time(18, 0)
-DEAD_ZONE_START = time(13, 0)
-DEAD_ZONE_END = time(15, 30)
 
+# Параметры стратегии.
+DEFAULT_LOOKBACK = 48
+MIN_ADX = 18.0
+MAX_ATR_RATIO = 2.5
+MIN_ATR_RATIO = 0.55
+MIN_BODY_RATIO = 0.45
+EMA_DISTANCE_MAX = 0.012
+SWING_MIN_ATR = 2.5
+SIGNAL_COOLDOWN = 6
+
+# Основная рабочая зона отката. 0.5 — середина диапазона, 0.618 — глубокий
+# откат. Допускаем небольшой буфер вокруг зоны через ATR.
+FIB_ZONE_LOW = 0.382
+FIB_ZONE_HIGH = 0.618
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def is_active_session(current_time) -> bool:
+    """Return True when the bar belongs to the configured trading session."""
     trade_time = current_time.time()
-    if not (SESSION_START <= trade_time < SESSION_END):
-        return False
-    if DEAD_ZONE_START <= trade_time < DEAD_ZONE_END:
-        return False
-    return True
+    return SESSION_START <= trade_time < SESSION_END
 
 
-def generate_fibonacci_pro_signals(df: pd.DataFrame, lookback: int = 30) -> List[Dict[str, Any]]:
-    signals = []
-    df = _ensure_indicators(df)
+def generate_fibonacci_pro_signals(
+    df: pd.DataFrame,
+    lookback: int = DEFAULT_LOOKBACK,
+) -> List[Dict[str, Any]]:
+    """Generate Fibonacci pullback signals without look-ahead bias.
 
-    if 'atr_50_avg' not in df.columns:
-        df['atr_50_avg'] = df['atr_14'].rolling(window=50).mean()
+    The existing runner calls this function with only a DataFrame, so the
+    public signature intentionally remains unchanged apart from the optional
+    lookback argument.
+    """
+    if df is None or df.empty:
+        return []
 
-    for i in range(lookback + 2, len(df)):
-        current = df.iloc[i]
-        current_time = df.index[i]
+    required = {"open", "high", "low", "close"}
+    if not required.issubset(df.columns):
+        return []
 
+    data = _ensure_indicators(df)
+    lookback = max(int(lookback), 20)
+
+    if len(data) <= lookback + 5:
+        return []
+
+    signals: List[Dict[str, Any]] = []
+    last_signal_index = -SIGNAL_COOLDOWN - 1
+
+    for i in range(lookback + 2, len(data)):
+        if i - last_signal_index <= SIGNAL_COOLDOWN:
+            continue
+
+        current_time = data.index[i]
         if not is_active_session(current_time):
             continue
-        if current['adx_14'] < 25:
+
+        current = data.iloc[i]
+        previous = data.iloc[i - 1]
+
+        # Indicators must be valid before any comparison.
+        indicator_values = [
+            current.get("ema_50"),
+            current.get("ema_200"),
+            current.get("atr_14"),
+            current.get("atr_50"),
+            current.get("adx_14"),
+        ]
+        if any(pd.isna(value) for value in indicator_values):
             continue
 
-        atr_current = current['atr_14']
-        atr_avg = current.get('atr_50_avg', atr_current)
-        if atr_current < (atr_avg * 0.5):
+        atr = float(current["atr_14"])
+        atr_avg = float(current["atr_50"])
+        if atr <= 0 or atr_avg <= 0:
             continue
 
-        ema_50 = current['ema_50']
-        ema_200 = current.get('ema_200', ema_50)
-        distance_from_ema = abs(current['close'] - ema_50) / ema_50
-        if distance_from_ema > 0.01:
+        # Избегаем как мертвого рынка, так и экстремального spike-режима.
+        atr_ratio = atr / atr_avg
+        if atr_ratio < MIN_ATR_RATIO or atr_ratio > MAX_ATR_RATIO:
             continue
 
-        swing_high, swing_low = _find_swing_points(df, i, lookback)
+        adx = float(current["adx_14"])
+        if adx < MIN_ADX:
+            continue
+
+        ema50 = float(current["ema_50"])
+        ema200 = float(current["ema_200"])
+        close = float(current["close"])
+
+        if ema50 <= 0:
+            continue
+
+        # Тренд должен быть не только выше/ниже EMA200, но и иметь
+        # направленный наклон EMA50. Это существенно уменьшает flat-market
+        # сделки, которые были одной из проблем старой версии.
+        ema50_prev = float(data.iloc[i - 5]["ema_50"])
+        ema50_slope = ema50 - ema50_prev
+        if pd.isna(ema50_prev):
+            continue
+
+        distance_from_ema50 = abs(close - ema50) / ema50
+        if distance_from_ema50 > EMA_DISTANCE_MAX:
+            continue
+
+        swing_high, swing_low, high_idx, low_idx = _find_swing_points(
+            data, i, lookback
+        )
         if swing_high is None or swing_low is None:
             continue
+
         range_size = swing_high - swing_low
-        if range_size == 0:
+        if range_size <= 0 or range_size < atr * SWING_MIN_ATR:
             continue
 
-        fib_levels = _calculate_fibonacci_levels(swing_high, swing_low)
-        current_price = current['close']
+        fib = _calculate_fibonacci_levels(swing_high, swing_low)
 
-        body_size = abs(current['close'] - current['open'])
-        candle_range = current['high'] - current['low']
-        if candle_range == 0 or (body_size / candle_range) < 0.5:
+        # Последняя цена должна находиться около реальной retracement zone.
+        # Буфер зависит от ATR, поэтому фиксированное 0.05% больше не является
+        # одинаковым для EURUSD, JPY и кроссов.
+        zone_buffer = max(atr * 0.20, range_size * 0.015)
+
+        candle_range = float(current["high"] - current["low"])
+        body = abs(float(current["close"] - current["open"]))
+        if candle_range <= 0 or body / candle_range < MIN_BODY_RATIO:
             continue
 
-        if current_price > ema_50 and ema_50 > ema_200:
-            for fib_level_name, fib_price in fib_levels.items():
-                if fib_level_name in ['0.236', '0.382', '0.5']:
-                    if _is_bounce_above_level(df, i, fib_price, tolerance=0.0005):
-                        if current['stoch_k'] < 30:
-                            signals.append({
-                                'index': i,
-                                'type': 'bullish',
-                                'time': current_time,
-                                'pattern_name': f'Fibonacci_Pro_Long_{fib_level_name}',
-                                'fib_level': float(fib_level_name),
-                                'swing_high': swing_high,
-                                'swing_low': swing_low
-                            })
-                            break
-        elif current_price < ema_50 and ema_50 < ema_200:
-            for fib_level_name, fib_price in fib_levels.items():
-                if fib_level_name in ['0.618', '0.786', '0.764']:
-                    if _is_bounce_below_level(df, i, fib_price, tolerance=0.0005):
-                        if current['stoch_k'] > 70:
-                            signals.append({
-                                'index': i,
-                                'type': 'bearish',
-                                'time': current_time,
-                                'pattern_name': f'Fibonacci_Pro_Short_{fib_level_name}',
-                                'fib_level': float(fib_level_name),
-                                'swing_high': swing_high,
-                                'swing_low': swing_low
-                            })
-                            break
+        # ---------------------------------------------------------------
+        # LONG: восходящий тренд + откат к 38.2–61.8% + bullish rejection
+        # ---------------------------------------------------------------
+        if close > ema50 > ema200 and ema50_slope > 0:
+            zone_low = fib["0.382"]
+            zone_high = fib["0.618"]
+
+            touched_zone = _bar_touches_zone(
+                previous, current, zone_low, zone_high, zone_buffer
+            )
+            if not touched_zone:
+                continue
+
+            # Подтверждение должно показывать покупателя: текущая свеча
+            # закрывается выше предыдущего close и выше/около 38.2%.
+            bullish_confirmation = (
+                current["close"] > current["open"]
+                and current["close"] > previous["close"]
+                and current["close"] >= zone_low - zone_buffer
+            )
+            if not bullish_confirmation:
+                continue
+
+            # Stochastic используется как дополнительный context filter, а не
+            # как обязательное условие oversold. Старый stoch<30 практически
+            # конфликтовал с уже начавшимся bullish reversal.
+            stoch_k = current.get("stoch_k")
+            stoch_ok = pd.isna(stoch_k) or float(stoch_k) < 65
+            if not stoch_ok:
+                continue
+
+            signals.append(
+                _build_signal(
+                    index=i,
+                    current_time=current_time,
+                    signal_type="bullish",
+                    pattern_name="Fibonacci_Pro_Long",
+                    fib_level=_nearest_fib_level(close, fib),
+                    swing_high=swing_high,
+                    swing_low=swing_low,
+                    swing_high_index=high_idx,
+                    swing_low_index=low_idx,
+                    adx=adx,
+                    atr_ratio=atr_ratio,
+                )
+            )
+            last_signal_index = i
+            continue
+
+        # ---------------------------------------------------------------
+        # SHORT: нисходящий тренд + откат к 38.2–61.8% + bearish rejection
+        # ---------------------------------------------------------------
+        if close < ema50 < ema200 and ema50_slope < 0:
+            # Для short retracement считаем от low к high, поэтому рабочая
+            # зона симметрично находится между 38.2 и 61.8%.
+            zone_low = fib["0.382"]
+            zone_high = fib["0.618"]
+
+            touched_zone = _bar_touches_zone(
+                previous, current, zone_low, zone_high, zone_buffer
+            )
+            if not touched_zone:
+                continue
+
+            bearish_confirmation = (
+                current["close"] < current["open"]
+                and current["close"] < previous["close"]
+                and current["close"] <= zone_high + zone_buffer
+            )
+            if not bearish_confirmation:
+                continue
+
+            stoch_k = current.get("stoch_k")
+            stoch_ok = pd.isna(stoch_k) or float(stoch_k) > 35
+            if not stoch_ok:
+                continue
+
+            signals.append(
+                _build_signal(
+                    index=i,
+                    current_time=current_time,
+                    signal_type="bearish",
+                    pattern_name="Fibonacci_Pro_Short",
+                    fib_level=_nearest_fib_level(close, fib),
+                    swing_high=swing_high,
+                    swing_low=swing_low,
+                    swing_high_index=high_idx,
+                    swing_low_index=low_idx,
+                    adx=adx,
+                    atr_ratio=atr_ratio,
+                )
+            )
+            last_signal_index = i
+
     return signals
 
 
-def _find_swing_points(df: pd.DataFrame, current_idx: int, lookback: int) -> Tuple[float, float]:
-    recent_highs = df['high'].iloc[current_idx - lookback:current_idx]
-    recent_lows = df['low'].iloc[current_idx - lookback:current_idx]
-    swing_high = recent_highs.max()
-    swing_low = recent_lows.min()
-    high_idx = recent_highs.idxmax()
-    low_idx = recent_lows.idxmin()
-    current_idx_abs = df.index[current_idx]
-    if high_idx == current_idx_abs or low_idx == current_idx_abs:
-        return None, None
-    return swing_high, swing_low
+# ---------------------------------------------------------------------------
+# Swing/Fibonacci logic
+# ---------------------------------------------------------------------------
+
+def _find_swing_points(
+    df: pd.DataFrame,
+    current_idx: int,
+    lookback: int,
+) -> Tuple[Optional[float], Optional[float], Optional[Any], Optional[Any]]:
+    """Find the range using only bars before current_idx.
+
+    A simple rolling range is deliberately used instead of a centered pivot,
+    because centered pivots would require future bars and introduce look-ahead
+    bias into the backtest.
+    """
+    start = max(0, current_idx - lookback)
+    window = df.iloc[start:current_idx]
+    if window.empty:
+        return None, None, None, None
+
+    high_idx = window["high"].idxmax()
+    low_idx = window["low"].idxmin()
+    swing_high = float(window.loc[high_idx, "high"])
+    swing_low = float(window.loc[low_idx, "low"])
+
+    if swing_high <= swing_low:
+        return None, None, None, None
+
+    return swing_high, swing_low, high_idx, low_idx
 
 
-def _calculate_fibonacci_levels(swing_high: float, swing_low: float) -> Dict[str, float]:
+def _calculate_fibonacci_levels(
+    swing_high: float,
+    swing_low: float,
+) -> Dict[str, float]:
     range_size = swing_high - swing_low
     return {
-        '0.0': swing_low,
-        '0.236': swing_low + (range_size * 0.236),
-        '0.382': swing_low + (range_size * 0.382),
-        '0.5': swing_low + (range_size * 0.5),
-        '0.618': swing_low + (range_size * 0.618),
-        '0.764': swing_low + (range_size * 0.764),
-        '0.786': swing_low + (range_size * 0.786),
-        '1.0': swing_high
+        "0.0": swing_low,
+        "0.236": swing_low + range_size * 0.236,
+        "0.382": swing_low + range_size * 0.382,
+        "0.5": swing_low + range_size * 0.500,
+        "0.618": swing_low + range_size * 0.618,
+        "0.786": swing_low + range_size * 0.786,
+        "1.0": swing_high,
     }
 
 
-def _is_bounce_above_level(df: pd.DataFrame, current_idx: int, level: float, tolerance: float) -> bool:
-    current = df.iloc[current_idx]
-    prev = df.iloc[current_idx - 1]
-    min_price = min(current['low'], prev['low'])
-    distance_to_level = abs(min_price - level) / level
-    return distance_to_level <= tolerance and current['close'] > level
+def _nearest_fib_level(price: float, fib: Dict[str, float]) -> float:
+    candidates = ["0.382", "0.5", "0.618"]
+    nearest = min(candidates, key=lambda name: abs(price - fib[name]))
+    return float(nearest)
 
 
-def _is_bounce_below_level(df: pd.DataFrame, current_idx: int, level: float, tolerance: float) -> bool:
-    current = df.iloc[current_idx]
-    prev = df.iloc[current_idx - 1]
-    max_price = max(current['high'], prev['high'])
-    distance_to_level = abs(max_price - level) / level
-    return distance_to_level <= tolerance and current['close'] < level
+def _bar_touches_zone(
+    previous: pd.Series,
+    current: pd.Series,
+    zone_low: float,
+    zone_high: float,
+    buffer: float,
+) -> bool:
+    """Return True if either of the last two bars interacted with the zone."""
+    lower = zone_low - buffer
+    upper = zone_high + buffer
 
+    for bar in (previous, current):
+        if float(bar["high"]) >= lower and float(bar["low"]) <= upper:
+            return True
+    return False
+
+
+def _build_signal(
+    *,
+    index: int,
+    current_time: Any,
+    signal_type: str,
+    pattern_name: str,
+    fib_level: float,
+    swing_high: float,
+    swing_low: float,
+    swing_high_index: Any,
+    swing_low_index: Any,
+    adx: float,
+    atr_ratio: float,
+) -> Dict[str, Any]:
+    return {
+        "index": index,
+        "type": signal_type,
+        "time": current_time,
+        "pattern_name": pattern_name,
+        "fib_level": fib_level,
+        "swing_high": swing_high,
+        "swing_low": swing_low,
+        "swing_high_index": swing_high_index,
+        "swing_low_index": swing_low_index,
+        "adx": round(adx, 2),
+        "atr_ratio": round(atr_ratio, 3),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Indicator compatibility layer
+# ---------------------------------------------------------------------------
 
 def _ensure_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure indicators required by Fibonacci Pro exist.
+
+    run_intraday_backtest already populates the canonical project indicators.
+    These fallbacks keep this module independently usable in tests/fixtures and
+    do not overwrite existing project values.
+    """
     res = df.copy()
-    if 'ema_50' not in res.columns:
-        res['ema_50'] = res['close'].ewm(span=50, adjust=False).mean()
-    if 'ema_200' not in res.columns:
-        res['ema_200'] = res['close'].ewm(span=200, adjust=False).mean()
-    if 'stoch_k' not in res.columns:
-        low_14 = res['low'].rolling(window=14).min()
-        high_14 = res['high'].rolling(window=14).max()
-        raw_k = 100 * (res['close'] - low_14) / (high_14 - low_14)
-        res['stoch_k'] = raw_k.rolling(window=3).mean()
-        res['stoch_d'] = res['stoch_k'].rolling(window=3).mean()
-    if 'adx_14' not in res.columns:
-        up_move = res['high'] - res['high'].shift(1)
-        down_move = res['low'].shift(1) - res['low']
-        pos_dm = ((up_move > down_move) & (up_move > 0)) * up_move
-        neg_dm = ((down_move > up_move) & (down_move > 0)) * down_move
-        tr = pd.concat([
-            res['high'] - res['low'],
-            (res['high'] - res['close'].shift()).abs(),
-            (res['low'] - res['close'].shift()).abs()
-        ], axis=1).max(axis=1)
-        atr = tr.rolling(window=14).mean()
-        pos_di = 100 * (pos_dm.rolling(window=14).mean() / atr)
-        neg_di = 100 * (neg_dm.rolling(window=14).mean() / atr)
-        dx = 100 * (pos_di - neg_di).abs() / (pos_di + neg_di)
-        res['adx_14'] = dx.rolling(window=14).mean()
-    if 'atr_14' not in res.columns:
-        tr = pd.concat([
-            res['high'] - res['low'],
-            (res['high'] - res['close'].shift()).abs(),
-            (res['low'] - res['close'].shift()).abs()
-        ], axis=1).max(axis=1)
-        res['atr_14'] = tr.rolling(window=14).mean()
+
+    if "ema_50" not in res.columns:
+        res["ema_50"] = res["close"].ewm(span=50, adjust=False).mean()
+
+    if "ema_200" not in res.columns:
+        res["ema_200"] = res["close"].ewm(span=200, adjust=False).mean()
+
+    if "atr_14" not in res.columns:
+        res["atr_14"] = _calculate_atr(res, 14)
+
+    if "atr_50" not in res.columns:
+        res["atr_50"] = res["atr_14"].rolling(window=50, min_periods=20).mean()
+
+    if "stoch_k" not in res.columns:
+        low_14 = res["low"].rolling(window=14).min()
+        high_14 = res["high"].rolling(window=14).max()
+        denominator = (high_14 - low_14).replace(0, 1e-10)
+        raw_k = 100 * (res["close"] - low_14) / denominator
+        res["stoch_k"] = raw_k.rolling(window=3).mean()
+
+    if "adx_14" not in res.columns:
+        res["adx_14"] = _calculate_adx(res, 14)
+
     return res
+
+
+def _calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    tr = pd.concat(
+        [
+            df["high"] - df["low"],
+            (df["high"] - df["close"].shift(1)).abs(),
+            (df["low"] - df["close"].shift(1)).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    return tr.ewm(span=period, adjust=False).mean()
+
+
+def _calculate_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    high = df["high"]
+    low = df["low"]
+    close = df["close"]
+
+    up_move = high.diff()
+    down_move = -low.diff()
+    plus_dm = up_move.where((up_move > 0) & (up_move > down_move), 0.0)
+    minus_dm = down_move.where((down_move > 0) & (down_move > up_move), 0.0)
+
+    tr = pd.concat(
+        [
+            high - low,
+            (high - close.shift(1)).abs(),
+            (low - close.shift(1)).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+
+    atr = tr.ewm(span=period, adjust=False).mean().replace(0, float("nan"))
+    plus_di = 100 * plus_dm.ewm(span=period, adjust=False).mean() / atr
+    minus_di = 100 * minus_dm.ewm(span=period, adjust=False).mean() / atr
+    denominator = (plus_di + minus_di).replace(0, float("nan"))
+    dx = 100 * (plus_di - minus_di).abs() / denominator
+    return dx.ewm(span=period, adjust=False).mean()
