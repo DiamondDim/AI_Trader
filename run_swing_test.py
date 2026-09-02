@@ -11,7 +11,7 @@ from core.backtesting import Backtester
 from core.data_provider import MarketDataProvider
 from core.indicators import Indicators
 from list_symbols import display_symbols, get_available_symbols, select_symbols
-from strategy_swing import analyze_swing_signals
+from strategy_swing.swing import analyze_swing_signals
 
 
 def main():
