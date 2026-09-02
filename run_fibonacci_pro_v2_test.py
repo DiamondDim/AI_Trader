@@ -62,7 +62,7 @@ def run_one(connector, symbol: str, timeframe: str, bars: int, balance: float, r
         initial_balance=balance,
         risk_per_trade=risk,
         atr_sl_multiplier=1.5,
-        atr_tp_multiplier=3.0,
+        atr_tp_multiplier=3.0
     )
     result = backtester.run(df, connector, signals, symbol)
     if result:

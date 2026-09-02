@@ -25,19 +25,32 @@ import pandas as pd
 SESSION_START = time(10, 0)
 SESSION_END = time(18, 0)
 
-DEFAULT_LOOKBACK = 72
-PIVOT_SPAN = 2
-MIN_ADX = 20.0
-MIN_ATR_RATIO = 0.60
-MAX_ATR_RATIO = 2.20
-MIN_BODY_RATIO = 0.50
-MAX_EMA_DISTANCE = 0.010
-MIN_IMPULSE_ATR = 3.0
-MIN_RR = 1.50
-SIGNAL_COOLDOWN = 8
-MAX_SWING_AGE = 40
-FIB_ZONE_LOW = 0.50
-FIB_ZONE_HIGH = 0.618
+# DEFAULT_LOOKBACK = 72
+# PIVOT_SPAN = 2
+# MIN_ADX = 20.0
+# MIN_ATR_RATIO = 0.60
+# MAX_ATR_RATIO = 2.20
+# MIN_BODY_RATIO = 0.50
+# MAX_EMA_DISTANCE = 0.010
+# MIN_IMPULSE_ATR = 3.0
+# MIN_RR = 1.50
+# SIGNAL_COOLDOWN = 8
+# MAX_SWING_AGE = 40
+# FIB_ZONE_LOW = 0.50
+# FIB_ZONE_HIGH = 0.618
+DEFAULT_LOOKBACK = 100        # было 72, нужно больше для поиска свингов
+PIVOT_SPAN = 3                # было 2, нужно строже для качества пивотов
+MIN_ADX = 18.0                # было 20.0, чуть мягче
+MIN_ATR_RATIO = 0.50          # было 0.60, рынок часто в низкой волатильности
+MAX_ATR_RATIO = 2.50          # было 2.20
+MIN_BODY_RATIO = 0.40         # было 0.50, чуть мягче
+MAX_EMA_DISTANCE = 0.015      # было 0.010, чуть больше допуск
+MIN_IMPULSE_ATR = 2.0         # было 3.0, критично снизить
+MIN_RR = 1.20                 # было 1.50, чуть мягче
+SIGNAL_COOLDOWN = 12          # было 8, чуть больше
+MAX_SWING_AGE = 120           # было 40, КРИТИЧНО увеличить
+FIB_ZONE_LOW = 0.382          # было 0.50, расширяем зону
+FIB_ZONE_HIGH = 0.786         # было 0.618, расширяем зону
 
 
 def is_active_session(current_time: Any) -> bool:

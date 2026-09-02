@@ -37,8 +37,7 @@ def get_available_symbols():
                     'digits': symbol.digits,
                     'visible': symbol.visible
                 })
-    
-    mt5.shutdown()
+
     return forex_pairs
 
 def display_symbols(symbols):
