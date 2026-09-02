@@ -37,8 +37,7 @@ def get_available_symbols():
                     'digits': symbol.digits,
                     'visible': symbol.visible
                 })
-    
-    mt5.shutdown()
+
     return forex_pairs
 
 def display_symbols(symbols):
@@ -140,7 +139,6 @@ def run_tests(selected_symbols):
     import os
     print(f"\n🚀 Запускаем тестирование для {len(selected_symbols)} пар...\n")
 
-    # Копируем переменные окружения и включаем UTF-8 режим для Python
     env = os.environ.copy()
     env['PYTHONUTF8'] = '1'
 
@@ -151,7 +149,6 @@ def run_tests(selected_symbols):
         print(f"ТЕСТИРОВАНИЕ: {symbol}")
         print(f"{'=' * 70}")
 
-        # Запускаем test_patterns.py с аргументом символа и UTF-8 окружением
         result = subprocess.run(
             [sys.executable, 'test_patterns.py', symbol],
             capture_output=True,
@@ -172,7 +169,6 @@ def run_tests(selected_symbols):
             'returncode': result.returncode
         })
 
-    # Сохраняем результаты в файл
     with open('test_results_selected_symbols.txt', 'w', encoding='utf-8') as f:
         f.write("РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ ВЫБРАННЫХ СИМВОЛОВ\n")
         f.write("=" * 70 + "\n\n")
@@ -194,10 +190,8 @@ def main():
         print("❌ Не удалось получить список символов.")
         return
     
-    # Отображаем список
     display_symbols(symbols)
     
-    # Сохраняем список в файл
     with open('available_symbols.txt', 'w', encoding='utf-8') as f:
         f.write("Доступные валютные пары для торговли:\n\n")
         for i, pair in enumerate(symbols, 1):
@@ -205,16 +199,12 @@ def main():
     
     print(f"\n💾 Список сохранен в файл 'available_symbols.txt'")
     
-    # Интерактивный выбор
     selected_indices = select_symbols(symbols)
     
     if not selected_indices:
         return
     
-    # Извлекаем имена выбранных символов
     selected_symbols = [symbols[idx-1]['name'] for idx in selected_indices]
-    
-    # Запускаем тестирование
     run_tests(selected_symbols)
 
 if __name__ == "__main__":
