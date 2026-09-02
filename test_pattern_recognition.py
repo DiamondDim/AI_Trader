@@ -24,8 +24,9 @@ def test_engine_empty_dataframe():
 
 def test_mt5_command_export(tmp_path):
     idx = pd.date_range("2026-01-01", periods=2, freq="h")
-    df = pd.DataFrame({"open":[100,98],"high":[101,103],"low":[97,97],"close":[98,102]}, index=idx)
-    detection = detect_candlesticks(df)[-1]
-    path = export_mt5_commands([detection], tmp_path / "patterns.txt")
+    df = pd.DataFrame({"open":[100,102],"high":[103,104],"low":[99,101],"close":[102,98]}, index=idx)
+    detections = [d for d in detect_candlesticks(df) if d.name == "Bearish Engulfing"]
+    assert detections
+    path = export_mt5_commands(detections, tmp_path / "patterns.txt")
     text = path.read_text(encoding="utf-8")
     assert "LINE|" in text
