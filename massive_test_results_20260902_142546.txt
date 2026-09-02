@@ -1,0 +1,169 @@
+====================================================================================================
+РЕЗУЛЬТАТЫ МАССОВОГО ТЕСТИРОВАНИЯ
+Дата: 2026-09-02 14:31:22
+Стратегия: EMA Pullback (Откат к EMA50)
+====================================================================================================
+  1. USDJPYrfd       M15   Trades=1     WR=100.00%  PF=999.99   PnL=3831.43 DD=0.00%
+  2. USDJPYrfd       M30   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  3. USDJPYrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  4. USDRUBrfd       M15   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  5. USDRUBrfd       M30   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  6. USDRUBrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  7. AUDJPYrfd       M15   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  8. AUDJPYrfd       M30   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+  9. AUDJPYrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 10. CHFJPYrfd       M5    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 11. CHFJPYrfd       M15   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 12. CHFJPYrfd       M30   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 13. CHFJPYrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 14. EURJPYrfd       M15   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 15. EURJPYrfd       M30   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 16. EURJPYrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 17. GBPJPYrfd       M5    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 18. GBPJPYrfd       M15   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 19. GBPJPYrfd       M30   Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 20. GBPJPYrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 21. EURTRYrfd       H1    Trades=0     WR=0.00%    PF=999.99   PnL=0.00 DD=0.00%
+ 22. GBPUSDrfd       M15   Trades=18    WR=61.11%   PF=2.18     PnL=15664.76 DD=5.71%
+ 23. EURUSDrfd       H1    Trades=27    WR=48.15%   PF=1.51     PnL=12693.41 DD=6.86%
+ 24. USDILSrfd       H1    Trades=26    WR=53.85%   PF=1.48     PnL=12279.47 DD=11.69%
+ 25. EURNOKrfd       H1    Trades=17    WR=47.06%   PF=1.39     PnL=5756.08 DD=7.69%
+ 26. USDCHFrfd       M30   Trades=18    WR=50.00%   PF=1.20     PnL=3871.99 DD=6.62%
+ 27. USDCADrfd       M15   Trades=14    WR=50.00%   PF=1.20     PnL=2989.93 DD=9.28%
+ 28. GBPAUDrfd       M30   Trades=14    WR=50.00%   PF=1.12     PnL=1781.16 DD=4.47%
+ 29. USDNOKrfd       H1    Trades=17    WR=41.18%   PF=1.12     PnL=2234.06 DD=7.59%
+ 30. EURCHFrfd       H1    Trades=33    WR=45.45%   PF=1.10     PnL=3636.71 DD=15.43%
+ 31. GBPAUDrfd       H1    Trades=25    WR=44.00%   PF=1.07     PnL=1803.86 DD=5.86%
+ 32. GBPNZDrfd       M15   Trades=19    WR=52.63%   PF=1.03     PnL=695.31 DD=11.43%
+ 33. EURGBPrfd       H1    Trades=33    WR=45.45%   PF=0.99     PnL=-230.98 DD=9.35%
+ 34. USDDKKrfd       H1    Trades=25    WR=44.00%   PF=0.98     PnL=-437.27 DD=8.49%
+ 35. USDCADrfd       H1    Trades=31    WR=38.71%   PF=0.91     PnL=-3323.64 DD=11.57%
+ 36. USDNOKrfd       M15   Trades=14    WR=42.86%   PF=0.90     PnL=-1753.97 DD=12.52%
+ 37. USDSEKrfd       M15   Trades=20    WR=40.00%   PF=0.84     PnL=-3859.07 DD=12.14%
+ 38. USDCNYrfd       H1    Trades=33    WR=48.48%   PF=0.84     PnL=-5959.86 DD=13.84%
+ 39. GBPNZDrfd       H1    Trades=27    WR=37.04%   PF=0.83     PnL=-5744.44 DD=15.79%
+ 40. AUDCADrfd       H1    Trades=22    WR=36.36%   PF=0.81     PnL=-4815.51 DD=10.80%
+ 41. EURNZDrfd       H1    Trades=29    WR=37.93%   PF=0.81     PnL=-6278.21 DD=15.23%
+ 42. EURNZDrfd       M30   Trades=39    WR=41.03%   PF=0.79     PnL=-9797.01 DD=16.51%
+ 43. AUDUSDrfd       H1    Trades=36    WR=36.11%   PF=0.77     PnL=-8966.44 DD=17.02%
+ 44. USDMXNrfd       M15   Trades=19    WR=47.37%   PF=0.75     PnL=-7429.44 DD=16.52%
+ 45. EURSEKrfd       M15   Trades=21    WR=47.62%   PF=0.74     PnL=-6679.29 DD=9.49%
+ 46. GBPUSDrfd       M30   Trades=18    WR=33.33%   PF=0.73     PnL=-5921.04 DD=12.11%
+ 47. USDJPYrfd       M5    Trades=8     WR=50.00%   PF=0.73     PnL=-4892.14 DD=12.80%
+ 48. USDSGDrfd       H1    Trades=30    WR=43.33%   PF=0.73     PnL=-10863.39 DD=15.77%
+ 49. AUDNZDrfd       H1    Trades=18    WR=44.44%   PF=0.72     PnL=-6546.09 DD=15.62%
+ 50. EURRUBrfd       H1    Trades=47    WR=44.68%   PF=0.71     PnL=-16605.34 DD=18.43%
+ 51. AUDCHFrfd       H1    Trades=24    WR=37.50%   PF=0.71     PnL=-8517.60 DD=12.70%
+ 52. NZDUSDrfd       H1    Trades=27    WR=33.33%   PF=0.68     PnL=-10286.42 DD=13.69%
+ 53. EURUSDrfd       M5    Trades=22    WR=36.36%   PF=0.64     PnL=-10374.69 DD=12.36%
+ 54. USDCADrfd       M30   Trades=18    WR=33.33%   PF=0.64     PnL=-8215.46 DD=15.45%
+ 55. GBPUSDrfd       H1    Trades=34    WR=29.41%   PF=0.63     PnL=-14183.87 DD=20.96%
+ 56. EURNZDrfd       M15   Trades=23    WR=43.48%   PF=0.63     PnL=-12150.00 DD=18.64%
+ 57. GBPCADrfd       M30   Trades=23    WR=34.78%   PF=0.63     PnL=-10754.42 DD=15.08%
+ 58. GBPCHFrfd       H1    Trades=23    WR=34.78%   PF=0.62     PnL=-11478.73 DD=15.96%
+ 59. USDZARrfd       H1    Trades=12    WR=33.33%   PF=0.62     PnL=-9452.12 DD=14.58%
+ 60. EURAUDrfd       M30   Trades=25    WR=32.00%   PF=0.60     PnL=-13201.84 DD=18.69%
+ 61. EURCADrfd       M30   Trades=21    WR=38.10%   PF=0.60     PnL=-11424.92 DD=18.96%
+ 62. USDSEKrfd       H1    Trades=26    WR=34.62%   PF=0.59     PnL=-13921.07 DD=20.61%
+ 63. XPTUSDrfd       M30   Trades=15    WR=40.00%   PF=0.59     PnL=-9329.72 DD=9.33%
+ 64. NZDUSDrfd       M30   Trades=24    WR=33.33%   PF=0.55     PnL=-14250.41 DD=19.77%
+ 65. USDILSrfd       M30   Trades=22    WR=36.36%   PF=0.54     PnL=-12843.13 DD=12.93%
+ 66. USDNOKrfd       M30   Trades=13    WR=30.77%   PF=0.53     PnL=-7489.29 DD=9.44%
+ 67. GBPCADrfd       H1    Trades=29    WR=27.59%   PF=0.52     PnL=-18659.57 DD=23.15%
+ 68. USDZARrfd       M30   Trades=16    WR=37.50%   PF=0.52     PnL=-14157.77 DD=18.42%
+ 69. EURCADrfd       H1    Trades=23    WR=30.43%   PF=0.51     PnL=-15166.16 DD=16.06%
+ 70. AUDCADrfd       M5    Trades=21    WR=42.86%   PF=0.50     PnL=-15537.41 DD=15.80%
+ 71. EURAUDrfd       M15   Trades=30    WR=36.67%   PF=0.50     PnL=-19326.54 DD=23.30%
+ 72. XPTUSDrfd       M15   Trades=15    WR=46.67%   PF=0.50     PnL=-11079.13 DD=14.28%
+ 73. EURSEKrfd       M30   Trades=20    WR=40.00%   PF=0.49     PnL=-15535.54 DD=22.10%
+ 74. AUDCADrfd       M15   Trades=24    WR=29.17%   PF=0.48     PnL=-17919.90 DD=20.72%
+ 75. AUDCADrfd       M30   Trades=26    WR=26.92%   PF=0.48     PnL=-17658.19 DD=20.57%
+ 76. EURNOKrfd       M30   Trades=13    WR=30.77%   PF=0.48     PnL=-8840.38 DD=11.60%
+ 77. AUDCHFrfd       M15   Trades=21    WR=42.86%   PF=0.46     PnL=-17304.04 DD=19.78%
+ 78. GBPNZDrfd       M30   Trades=25    WR=28.00%   PF=0.45     PnL=-19131.49 DD=19.13%
+ 79. EURGBPrfd       M30   Trades=15    WR=33.33%   PF=0.45     PnL=-12572.81 DD=13.16%
+ 80. EURCHFrfd       M30   Trades=19    WR=31.58%   PF=0.45     PnL=-14716.54 DD=16.72%
+ 81. USDMXNrfd       M5    Trades=24    WR=54.17%   PF=0.45     PnL=-19958.53 DD=28.80%
+ 82. EURUSDrfd       M15   Trades=17    WR=23.53%   PF=0.43     PnL=-13039.59 DD=13.04%
+ 83. GBPUSDrfd       M5    Trades=10    WR=30.00%   PF=0.43     PnL=-8574.04 DD=10.54%
+ 84. GBPAUDrfd       M15   Trades=31    WR=32.26%   PF=0.43     PnL=-25031.83 DD=25.03%
+ 85. NZDUSDrfd       M15   Trades=25    WR=32.00%   PF=0.42     PnL=-21310.46 DD=21.31%
+ 86. USDSEKrfd       M5    Trades=21    WR=42.86%   PF=0.42     PnL=-18592.91 DD=19.83%
+ 87. USDCHFrfd       H1    Trades=27    WR=22.22%   PF=0.41     PnL=-20638.61 DD=26.13%
+ 88. EURSEKrfd       H1    Trades=24    WR=29.17%   PF=0.41     PnL=-20158.26 DD=20.16%
+ 89. USDSGDrfd       M15   Trades=18    WR=50.00%   PF=0.41     PnL=-16361.10 DD=18.15%
+ 90. EURNOKrfd       M5    Trades=33    WR=33.33%   PF=0.40     PnL=-30632.72 DD=30.63%
+ 91. USDMXNrfd       M30   Trades=23    WR=30.43%   PF=0.40     PnL=-21054.99 DD=21.12%
+ 92. EURCHFrfd       M5    Trades=20    WR=40.00%   PF=0.39     PnL=-19154.25 DD=25.55%
+ 93. USDDKKrfd       M30   Trades=15    WR=26.67%   PF=0.39     PnL=-12814.52 DD=14.64%
+ 94. EURCNYrfd       H1    Trades=35    WR=28.57%   PF=0.39     PnL=-28018.74 DD=29.29%
+ 95. GBPCHFrfd       M5    Trades=21    WR=52.38%   PF=0.38     PnL=-19583.94 DD=21.25%
+ 96. GBPCHFrfd       M15   Trades=16    WR=37.50%   PF=0.38     PnL=-16179.56 DD=19.83%
+ 97. USDDKKrfd       M5    Trades=22    WR=45.45%   PF=0.38     PnL=-21771.64 DD=22.40%
+ 98. USDSEKrfd       M30   Trades=21    WR=28.57%   PF=0.37     PnL=-19377.32 DD=22.46%
+ 99. AUDUSDrfd       M15   Trades=27    WR=25.93%   PF=0.36     PnL=-26454.15 DD=27.04%
+100. NZDUSDrfd       M5    Trades=16    WR=43.75%   PF=0.36     PnL=-16025.72 DD=16.03%
+101. EURNOKrfd       M15   Trades=21    WR=23.81%   PF=0.36     PnL=-21171.02 DD=25.33%
+102. AUDNZDrfd       M15   Trades=31    WR=45.16%   PF=0.35     PnL=-29750.91 DD=31.43%
+103. EURCHFrfd       M15   Trades=20    WR=30.00%   PF=0.35     PnL=-20614.69 DD=20.61%
+104. EURNZDrfd       M5    Trades=25    WR=40.00%   PF=0.34     PnL=-26628.69 DD=28.73%
+105. EURUSDrfd       M30   Trades=16    WR=18.75%   PF=0.33     PnL=-14542.91 DD=15.83%
+106. AUDCHFrfd       M30   Trades=24    WR=25.00%   PF=0.33     PnL=-24648.49 DD=26.20%
+107. USDMXNrfd       H1    Trades=18    WR=22.22%   PF=0.33     PnL=-21655.09 DD=21.66%
+108. USDCHFrfd       M15   Trades=17    WR=23.53%   PF=0.32     PnL=-17639.74 DD=17.64%
+109. GBPCADrfd       M15   Trades=20    WR=25.00%   PF=0.32     PnL=-20496.92 DD=20.54%
+110. GBPCHFrfd       M30   Trades=18    WR=27.78%   PF=0.32     PnL=-20223.64 DD=23.13%
+111. USDILSrfd       M15   Trades=19    WR=26.32%   PF=0.32     PnL=-21330.96 DD=22.95%
+112. USDZARrfd       M5    Trades=21    WR=33.33%   PF=0.30     PnL=-23199.81 DD=23.20%
+113. AUDUSDrfd       M5    Trades=24    WR=33.33%   PF=0.27     PnL=-29955.54 DD=30.62%
+114. EURGBPrfd       M5    Trades=16    WR=43.75%   PF=0.27     PnL=-19178.87 DD=21.03%
+115. EURAUDrfd       M5    Trades=18    WR=33.33%   PF=0.26     PnL=-22377.47 DD=22.38%
+116. XPDUSDrfd       M30   Trades=8     WR=25.00%   PF=0.26     PnL=-10446.75 DD=10.45%
+117. XPTUSDrfd       H1    Trades=8     WR=25.00%   PF=0.26     PnL=-11084.01 DD=11.77%
+118. EURCADrfd       M15   Trades=12    WR=25.00%   PF=0.25     PnL=-15602.46 DD=16.80%
+119. USDCADrfd       M5    Trades=16    WR=25.00%   PF=0.24     PnL=-20685.99 DD=20.69%
+120. GBPNZDrfd       M5    Trades=27    WR=33.33%   PF=0.24     PnL=-33324.62 DD=33.32%
+121. GBPAUDrfd       M5    Trades=23    WR=30.43%   PF=0.24     PnL=-31093.71 DD=31.09%
+122. EURCNYrfd       M15   Trades=21    WR=23.81%   PF=0.24     PnL=-27371.06 DD=27.37%
+123. EURCNYrfd       M30   Trades=15    WR=20.00%   PF=0.24     PnL=-20592.13 DD=20.59%
+124. XPDUSDrfd       M15   Trades=16    WR=31.25%   PF=0.24     PnL=-25028.49 DD=28.83%
+125. EURAUDrfd       H1    Trades=16    WR=12.50%   PF=0.22     PnL=-17824.18 DD=18.54%
+126. EURCNYrfd       M5    Trades=22    WR=36.36%   PF=0.22     PnL=-31094.10 DD=31.09%
+127. XPTUSDrfd       M5    Trades=21    WR=47.62%   PF=0.22     PnL=-28427.85 DD=28.43%
+128. AUDUSDrfd       M30   Trades=21    WR=14.29%   PF=0.21     PnL=-24856.78 DD=24.86%
+129. AUDNZDrfd       M30   Trades=23    WR=26.09%   PF=0.21     PnL=-30327.56 DD=33.00%
+130. EURGBPrfd       M15   Trades=21    WR=23.81%   PF=0.21     PnL=-27126.06 DD=28.45%
+131. USDDKKrfd       M15   Trades=16    WR=18.75%   PF=0.21     PnL=-23043.02 DD=23.04%
+132. USDNOKrfd       M5    Trades=24    WR=20.83%   PF=0.21     PnL=-30850.14 DD=30.85%
+133. EURRUBrfd       M30   Trades=51    WR=27.45%   PF=0.20     PnL=-56193.81 DD=58.65%
+134. EURSEKrfd       M5    Trades=16    WR=43.75%   PF=0.20     PnL=-20818.74 DD=21.97%
+135. USDSGDrfd       M30   Trades=22    WR=22.73%   PF=0.18     PnL=-31156.97 DD=31.16%
+136. USDILSrfd       M5    Trades=15    WR=40.00%   PF=0.18     PnL=-24248.57 DD=26.30%
+137. AUDJPYrfd       M5    Trades=4     WR=25.00%   PF=0.17     PnL=-12240.00 DD=12.24%
+138. USDCNYrfd       M30   Trades=18    WR=22.22%   PF=0.16     PnL=-29276.49 DD=30.24%
+139. EURCADrfd       M5    Trades=31    WR=29.03%   PF=0.15     PnL=-47773.41 DD=47.77%
+140. USDCHFrfd       M5    Trades=20    WR=15.00%   PF=0.14     PnL=-29881.29 DD=31.33%
+141. EURRUBrfd       M15   Trades=55    WR=25.45%   PF=0.12     PnL=-72746.85 DD=73.08%
+142. USDZARrfd       M15   Trades=15    WR=6.67%    PF=0.08     PnL=-33844.31 DD=33.84%
+143. XPDUSDrfd       H1    Trades=7     WR=14.29%   PF=0.07     PnL=-12309.36 DD=12.31%
+144. GBPCADrfd       M5    Trades=20    WR=10.00%   PF=0.06     PnL=-37699.59 DD=37.70%
+145. USDCNYrfd       M15   Trades=30    WR=6.67%    PF=0.04     PnL=-64540.93 DD=65.03%
+146. AUDCHFrfd       M5    Trades=15    WR=13.33%   PF=0.03     PnL=-37103.46 DD=37.10%
+147. USDSGDrfd       M5    Trades=28    WR=10.71%   PF=0.03     PnL=-55487.51 DD=55.49%
+148. XPDUSDrfd       M5    Trades=15    WR=20.00%   PF=0.03     PnL=-40795.97 DD=40.80%
+149. EURRUBrfd       M5    Trades=61    WR=14.75%   PF=0.02     PnL=-88272.04 DD=88.27%
+150. AUDNZDrfd       M5    Trades=17    WR=11.76%   PF=0.01     PnL=-49484.31 DD=49.54%
+151. EURDKKrfd       H1    Trades=44    WR=6.82%    PF=0.01     PnL=-95451.04 DD=95.45%
+152. USDRUBrfd       M5    Trades=1     WR=0.00%    PF=0.00     PnL=-16311.86 DD=16.31%
+153. EURDKKrfd       M5    Trades=2     WR=0.00%    PF=0.00     PnL=-106626.86 DD=106.63%
+154. EURDKKrfd       M15   Trades=18    WR=0.00%    PF=0.00     PnL=-99876.73 DD=99.88%
+155. EURDKKrfd       M30   Trades=26    WR=0.00%    PF=0.00     PnL=-99496.93 DD=99.50%
+156. EURJPYrfd       M5    Trades=2     WR=0.00%    PF=0.00     PnL=-9546.43 DD=9.55%
+157. USDCNYrfd       M5    Trades=33    WR=0.00%    PF=0.00     PnL=-86891.59 DD=86.89%
+158. USDTRYrfd       M5    Trades=1     WR=0.00%    PF=0.00     PnL=-1513537.20 DD=1513.54%
+159. USDTRYrfd       M15   Trades=1     WR=0.00%    PF=0.00     PnL=-105080.40 DD=105.08%
+160. USDTRYrfd       M30   Trades=1     WR=0.00%    PF=0.00     PnL=-132058.93 DD=132.06%
+161. USDTRYrfd       H1    Trades=3     WR=0.00%    PF=0.00     PnL=-84598.97 DD=84.60%
+162. EURTRYrfd       M5    Trades=3     WR=0.00%    PF=0.00     PnL=-90786.73 DD=90.79%
+163. EURTRYrfd       M15   Trades=2     WR=0.00%    PF=0.00     PnL=-55468.80 DD=55.47%
+164. EURTRYrfd       M30   Trades=2     WR=0.00%    PF=0.00     PnL=-55838.38 DD=55.84%
