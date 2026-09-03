@@ -30,6 +30,14 @@ class PatternDetection:
     metadata: Dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, object]:
+        # Безопасная обработка уровней: проверяем, является ли levels списком
+        levels_dict = {}
+        if isinstance(self.levels, list):
+            try:
+                levels_dict = {level.name: level.price for level in self.levels if hasattr(level, 'name')}
+            except Exception:
+                levels_dict = {"error": "invalid_level_format"}
+
         return {
             "pattern": self.name,
             "category": self.category,
@@ -37,9 +45,9 @@ class PatternDetection:
             "confidence": round(float(self.confidence), 4),
             "points": {
                 p.name: {"index": p.index, "time": str(p.time), "price": p.price}
-                for p in self.points
+                for p in self.points if hasattr(p, 'name')
             },
-            "levels": {level.name: level.price for level in self.levels},
+            "levels": levels_dict,
             "start_index": self.start_index,
             "end_index": self.end_index,
             "status": self.status,
