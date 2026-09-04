@@ -20,13 +20,12 @@ IMPORTS = [
 
 class FakeConnector:
     def get_symbol_info(self, symbol):
-        return {"name": symbol, "point": 0.0001, "trade_tick_size": 0.0001,
-                "trade_tick_value": 10.0, "trade_contract_size": 100000,
+        return {"name": symbol, "point": 0.01, "trade_tick_size": 0.01,
+                "trade_tick_value": 10.0, "trade_contract_size": 100,
                 "volume_min": 0.01, "volume_max": 100.0, "volume_step": 0.01, "spread": 0}
 
 
 def functional_checks() -> None:
-    # Broker calendar: Monday 08:00 is tradable, Saturday 08:00 is not.
     assert is_active_session(pd.Timestamp("2026-09-07 08:00").to_pydatetime())
     assert not is_active_session(pd.Timestamp("2026-09-05 08:00").to_pydatetime())
 
