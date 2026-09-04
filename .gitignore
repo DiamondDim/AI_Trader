@@ -6,6 +6,7 @@ __pycache__/
 
 # Environments / local configuration
 .env
+mt5_credentials.py
 .venv/
 env/
 venv/
