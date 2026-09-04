@@ -1,64 +1,67 @@
+"""Safe MT5 connectivity smoke test for AI Trader."""
+
+import os
+
 import config
 from broker.mt5_connector import get_mt5_connector
-import MetaTrader5 as mt5_lib
 
 
-def main():
+def main() -> int:
     print("🚀 Запуск AI_Trader...")
-
-    # Получаем экземпляр коннектора
     connector = get_mt5_connector()
 
-    # Проверяем режим (важно для безопасности!)
     if config.DEMO_MODE:
-        print("🛡️ ВНИМАНИЕ: Активирован БЕЗОПАСНЫЙ ДЕМО-РЕЖИМ. Реальные сделки запрещены.")
+        print("🛡️ DEMO_MODE: торговые операции разрешены только через защищённый connector API.")
     else:
-        print("🚨 ВНИМАНИЕ: Активирован РЕАЛЬНЫЙ режим торговли! Будь предельно осторожен!")
+        print("🚨 DEMO_MODE выключен. В этом smoke-test торговый ордер всё равно не отправляется.")
 
-    # Подключаемся к MT5
-    print(f"🔄 Подключение к MT5 (Сервер: {config.MT5_SERVER})...")
-    if connector.connect():
-        print("✅ Успешное подключение к терминалу!")
+    print("🔄 Подключение к MT5...")
+    if not connector.connect(interactive=True):
+        print("❌ Не удалось подключиться к MT5. Проверь mt5_credentials.py / переменные окружения и запущенный терминал.")
+        return 1
 
-        # Получаем информацию о счете
+    try:
         account_info = connector.get_account_info()
         if account_info:
             print(f"💰 Баланс: {account_info['balance']} {account_info['currency']}")
-            print(f"📈 Эквити (средства): {account_info['equity']} {account_info['currency']}")
+            print(f"📈 Эквити: {account_info['equity']} {account_info['currency']}")
             print(f"🏢 Брокер: {account_info['company']}")
 
-        # Тестовая проверка цены по символу из конфига
         symbol = config.SYMBOL
         price = connector.get_current_price(symbol)
         if price:
-            print(f"📊 Текущая цена {symbol}: Bid = {price['bid']}, Ask = {price['ask']}")
+            print(f"📊 {symbol}: Bid={price['bid']}, Ask={price['ask']}")
         else:
-            print(f"❌ Не удалось получить цену для {symbol}. Проверь, открыт ли этот символ в Обзоре рынка MT5.")
+            print(f"⚠️ Не удалось получить цену {symbol}. Проверь символ в Обзоре рынка MT5.")
 
-    else:
-        print("❌ Ошибка подключения к MT5. Проверь логин, пароль и сервер в config.py, а также запущен ли терминал.")
-
-    print("\n ТЕСТОВАЯ СДЕЛКА (Демо-режим)...")
-
-    # Пытаемся открыть покупку 0.01 лота
-    ticket = connector.place_order(
-        symbol=config.SYMBOL,
-        order_type=mt5_lib.ORDER_TYPE_BUY,
-        volume=0.01,
-        sl=price['bid'] - 0.0050,  # Stop Loss на 50 пунктов ниже
-        tp=price['bid'] + 0.0100,  # Take Profit на 100 пунктов выше
-        comment="Test_Dima_01"
-    )
-
-    if ticket:
-        print(f"🎉 УРА! Ордер открыт. Тикет: {ticket}")
-    else:
-        print("⚠️ Ордер не открыт. Проверь логи выше.")
-
-    # Корректно отключаемся
-    connector.disconnect()
-    print("👋 Завершение работы. До встречи!")
+        # По умолчанию main.py ничего не торгует. Старый ручной smoke-test
+        # можно явно включить переменной окружения.
+        if os.getenv("AI_TRADER_RUN_ORDER_TEST", "false").lower() in {"1", "true", "yes", "on"}:
+            if not price:
+                print("⚠️ Order-test пропущен: нет текущей цены.")
+            elif not config.DEMO_MODE:
+                print("🛑 Order-test заблокирован: DEMO_MODE выключен.")
+            else:
+                print("🧪 Выполняется явный DEMO order-test...")
+                spread = max(price['ask'] - price['bid'], 0.0)
+                sl_distance = max(spread * 5.0, 0.0050)
+                tp_distance = sl_distance * 2.0
+                ticket = connector.place_order(
+                    symbol=symbol,
+                    order_type=__import__('MetaTrader5').ORDER_TYPE_BUY,
+                    volume=0.01,
+                    sl=price['ask'] - sl_distance,
+                    tp=price['ask'] + tp_distance,
+                    comment="AI_Trader_Demo_OrderTest",
+                )
+                print(f"🎫 Результат order-test: {ticket if ticket else 'ордер не открыт'}")
+        else:
+            print("ℹ️ Order-test не выполнялся. Для явного теста задайте AI_TRADER_RUN_ORDER_TEST=true.")
+        return 0
+    finally:
+        connector.disconnect()
+        print("👋 Завершение работы.")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
