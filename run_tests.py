@@ -1,5 +1,6 @@
-"""Единый интерактивный launcher тестового контура AI Trader."""
+"""Единый интерактивный launcher всех тестовых и диагностических runners."""
 from __future__ import annotations
+
 import os
 import subprocess
 import sys
@@ -17,17 +18,21 @@ TESTS = {
     "7": ("Massive test V2", "run_massive_test_v2.py"),
     "8": ("Interactive massive test", "run_massive_test_interactive.py"),
     "9": ("Optimization / top pairs", "optimize_top_pairs.py"),
+    "10": ("Pattern recognition", "run_pattern_scan.py"),
+    "11": ("Live demo runner", "live_demo_runner.py"),
+    "12": ("Project syntax/import checks", "run_project_checks.py"),
+    "13": ("MT5 connectivity smoke test", "main.py"),
 }
 
 
 def print_menu() -> None:
-    print("\n" + "=" * 70)
-    print("AI TRADER — TEST RUNNER")
-    print("=" * 70)
+    print("\n" + "=" * 78)
+    print("AI TRADER — TEST / DIAGNOSTIC RUNNER")
+    print("=" * 78)
     for key, (name, filename) in TESTS.items():
-        print(f"{key}. {name:<30} [{filename}]")
-    print("q. Выход")
-    print("=" * 70)
+        print(f"{key:>2}. {name:<34} [{filename}]")
+    print(" q. Выход")
+    print("=" * 78)
 
 
 def result_path(filename: str) -> Path:
@@ -43,14 +48,16 @@ def run_test(filename: str) -> int:
         output_file.write_text(message, encoding="utf-8")
         print(message, end="")
         return 2
-    print(f"\n▶ Запуск: {filename}\n📄 Результат: {output_file}\n" + "─" * 70)
+    print(f"\n▶ Запуск: {filename}\n📄 Результат: {output_file}\n" + "─" * 78)
     env = os.environ.copy()
     env.update({"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1"})
     try:
         with output_file.open("w", encoding="utf-8") as log:
-            process = subprocess.Popen([sys.executable, "-u", str(script)], cwd=ROOT, env=env,
-                                       stdin=None, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                       text=True, encoding="utf-8", errors="replace", bufsize=1)
+            process = subprocess.Popen(
+                [sys.executable, "-u", str(script)], cwd=ROOT, env=env,
+                stdin=None, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", bufsize=1,
+            )
             assert process.stdout is not None
             while True:
                 char = process.stdout.read(1)
@@ -72,10 +79,12 @@ def run_test(filename: str) -> int:
 
 def main() -> None:
     while True:
-        print_menu(); choice = input("Выберите тест: ").strip().lower()
+        print_menu()
+        choice = input("Выберите тест: ").strip().lower()
         if choice == "q": print("Выход."); return
         if choice not in TESTS: print("❌ Неверный выбор."); continue
-        run_test(TESTS[choice][1]); input("\nНажмите Enter, чтобы вернуться в меню...")
+        run_test(TESTS[choice][1])
+        input("\nНажмите Enter, чтобы вернуться в меню...")
 
 
 if __name__ == "__main__":
