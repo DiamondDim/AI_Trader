@@ -1,8 +1,4 @@
-"""Unified local cache for MT5 market history.
-
-Provides both the merged_dev ``load`` API and the fibonacci_pro_v2 ``get``
-API so existing callers from either branch remain compatible.
-"""
+"""Unified local cache for MT5 market history."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,6 +8,7 @@ from utils.logger import LoggingMixin
 
 CACHE_DIR = "cache"
 CACHE_EXPIRY_HOURS = 24
+CACHE_VERSION = "msk_v2"
 
 
 class DataCache(LoggingMixin):
@@ -24,23 +21,20 @@ class DataCache(LoggingMixin):
 
     def _path(self, symbol: str, timeframe: str, bars: int) -> Path:
         safe = str(symbol).replace("/", "_").replace("\\", "_")
-        return self.cache_dir / f"{safe}_{str(timeframe).upper()}_{int(bars)}.pkl"
+        return self.cache_dir / f"{CACHE_VERSION}_{safe}_{str(timeframe).upper()}_{int(bars)}.pkl"
 
     def _get_cache_path(self, symbol: str, timeframe: str, bars: int) -> str:
         return str(self._path(symbol, timeframe, bars))
 
     def _is_cache_valid(self, cache_path: str | Path) -> bool:
         path = Path(cache_path)
-        if not path.exists():
-            return False
-        if self.ttl_seconds < 0:
-            return True
+        if not path.exists(): return False
+        if self.ttl_seconds < 0: return True
         return (pd.Timestamp.now().timestamp() - path.stat().st_mtime) <= self.ttl_seconds
 
     def load(self, symbol: str, timeframe: str, bars: int) -> Optional[pd.DataFrame]:
         path = self._path(symbol, timeframe, bars)
-        if not self._is_cache_valid(path):
-            return None
+        if not self._is_cache_valid(path): return None
         try:
             data = pd.read_pickle(path)
             if isinstance(data, pd.DataFrame) and not data.empty:
@@ -54,8 +48,7 @@ class DataCache(LoggingMixin):
         return self.load(symbol, timeframe, bars)
 
     def save(self, symbol: str, timeframe: str, bars: int, data: pd.DataFrame) -> None:
-        if data is None or data.empty:
-            return
+        if data is None or data.empty: return
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             data.to_pickle(self._path(symbol, timeframe, bars))
@@ -65,10 +58,8 @@ class DataCache(LoggingMixin):
 
     def clear(self) -> None:
         for path in self.cache_dir.glob("*.pkl"):
-            try:
-                path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            try: path.unlink(missing_ok=True)
+            except OSError: pass
         self.log_info("[CACHE] cleared")
 
 
@@ -77,6 +68,5 @@ _cache: DataCache | None = None
 
 def get_data_cache() -> DataCache:
     global _cache
-    if _cache is None:
-        _cache = DataCache()
+    if _cache is None: _cache = DataCache()
     return _cache
